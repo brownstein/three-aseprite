@@ -8,19 +8,24 @@ precision mediump float;
 uniform mat4 modelViewMatrix;
 uniform mat4 projectionMatrix;
 uniform float opacity;
+uniform vec3 color;
 uniform vec4 fade;
 
 attribute vec3 position;
 attribute vec2 uv;
+attribute vec3 vtxColor;
 attribute vec4 vtxFade;
 attribute float vtxOpacity;
 
 varying vec2 vUv;
+varying vec3 vColor;
 varying vec4 vFade;
 varying float vOpacity;
 
 void main() {
 	vUv = uv;
+
+	vColor = color * vtxColor;
 
 	vFade = vec4(0.0, 0.0, 0.0, 0.0);
 	if (fade.a > 0.0) vFade = fade;
@@ -39,11 +44,20 @@ uniform vec2 outlineSpread;
 uniform vec4 outline;
 
 varying vec2 vUv;
+varying vec3 vColor;
 varying vec4 vFade;
 varying float vOpacity;
 
 void main() {
 	vec4 color = texture2D(map, vUv);
+
+	// Support material and vertex coloration.
+	color.rgb = color.rgb * vColor;
+
+	// Support fading to a color.
+	if (vFade.a > 0.0) {
+		color.rgb = color.rgb * (1.0 - vFade.a) + vFade.rgb * vFade.a;
+	}
 	
 	// Support outlines.
 	if (color.a < 1.0 && (outlineSpread.x > 0.0 || outlineSpread.y > 0.0)) {
@@ -51,24 +65,21 @@ void main() {
 		vec4 color2 = texture2D(map, vUv + vec2(outlineSpread.x, 0.0));
 		vec4 color3 = texture2D(map, vUv - vec2(0.0, outlineSpread.y));
 		vec4 color4 = texture2D(map, vUv + vec2(0.0, outlineSpread.y));
-		if (color1.a > color.a) {
+		if (color1.a > color.a && color1.a > 0.5) {
 			color = outline;
 		}
-		else if (color2.a > color.a) {
+		else if (color2.a > color.a && color2.a > 0.5) {
 			color = outline;
 		}
-		else if (color3.a > color.a) {
+		else if (color3.a > color.a && color3.a > 0.5) {
 			color = outline;
 		}
-		else if (color4.a > color.a) {
+		else if (color4.a > color.a && color4.a > 0.5) {
 			color = outline;
 		}
 	}
-	
-	// Support fading to a color.
-	if (vFade.a > 0.0) {
-		color.rgb = color.rgb * (1.0 - vFade.a) + vFade.rgb * vFade.a;
-	}
+
+	// Support opacity.
 	color.a = color.a * vOpacity;
 
 	// Discard at low opacity.
@@ -96,10 +107,16 @@ function createAspriteShaderMaterial(props) {
             },
             outline: {
                 value: new three_1.Vector4()
+            },
+            color: {
+                value: new three_1.Color(1, 1, 1)
+            },
+            fade: {
+                value: new three_1.Vector4(0, 0, 0, 0)
             }
         },
         side: three_1.DoubleSide,
-        // transparent: true,
+        transparent: true,
     });
 }
 exports.createAspriteShaderMaterial = createAspriteShaderMaterial;

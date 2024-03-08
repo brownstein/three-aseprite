@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.ThreeAseprite = void 0;
+exports.ThreeAseprite = exports.defaultTagName = exports.defaultLayerName = void 0;
 const three_1 = require("three");
 const aseprite_shader_material_1 = require("./aseprite-shader-material");
 // Empty frame definition for internal use.
@@ -12,6 +12,8 @@ const emptyFrameDef = {
     sourceSize: { w: 0, h: 0 },
     duration: 100
 };
+exports.defaultLayerName = "Default";
+exports.defaultTagName = "Default";
 /**
  * Three.js aseprite sprite renderer class.
  */
@@ -63,13 +65,16 @@ class ThreeAseprite extends three_1.EventDispatcher {
             }
         }
         else {
-            this.orderedLayers = ["Default"];
+            this.orderedLayers = [exports.defaultLayerName];
         }
         // Extra frame tags from sprite sheet definitions.
-        const frameTags = (_e = options.sourceJSON.meta.frameTags) !== null && _e !== void 0 ? _e : [];
-        if (!frameTags.length) {
+        let frameTags = [];
+        if ((_e = options.sourceJSON.meta.frameTags) === null || _e === void 0 ? void 0 : _e.length) {
+            frameTags = options.sourceJSON.meta.frameTags;
+        }
+        else {
             frameTags.push({
-                name: "Default",
+                name: exports.defaultTagName,
                 from: 0,
                 to: Array.isArray(options.sourceJSON.frames)
                     ? options.sourceJSON.frames.length
@@ -77,7 +82,7 @@ class ThreeAseprite extends three_1.EventDispatcher {
                 direction: "forward"
             });
         }
-        this.currentTag = (_g = (_f = frameTags.at(0)) === null || _f === void 0 ? void 0 : _f.name) !== null && _g !== void 0 ? _g : "Default";
+        this.currentTag = (_g = (_f = frameTags.at(0)) === null || _f === void 0 ? void 0 : _f.name) !== null && _g !== void 0 ? _g : exports.defaultTagName;
         // We want to support both object and array based source frames.
         const framesByFilename = Array.isArray(this.sourceJSON.frames)
             ? this.sourceJSON.frames.reduce((acc, frame) => {
@@ -110,14 +115,17 @@ class ThreeAseprite extends three_1.EventDispatcher {
         this.vtxPos = new Float32Array(12 * quadCount);
         this.vtxUV = new Float32Array(8 * quadCount);
         this.vtxOpacity = new Float32Array(4 * quadCount);
+        this.vtxColor = new Float32Array(12 * quadCount);
         this.vtxFade = new Float32Array(16 * quadCount);
         this.geometry = new three_1.BufferGeometry();
         this.geometry.setAttribute("position", new three_1.BufferAttribute(this.vtxPos, 3));
         this.geometry.setAttribute("uv", new three_1.BufferAttribute(this.vtxUV, 2));
         this.geometry.setAttribute("vtxOpacity", new three_1.BufferAttribute(this.vtxOpacity, 1));
+        this.geometry.setAttribute("vtxColor", new three_1.BufferAttribute(this.vtxColor, 3));
         this.geometry.setAttribute("vtxFade", new three_1.BufferAttribute(this.vtxFade, 4));
         this.geometry.setIndex(new three_1.BufferAttribute(this.vtxIndex, 1));
         this.vtxOpacity.fill(1);
+        this.vtxColor.fill(1);
         // Initialize indices and layer z values.
         for (let qi = 0; qi < quadCount; qi++) {
             const qi6 = qi * 6;
@@ -143,6 +151,12 @@ class ThreeAseprite extends three_1.EventDispatcher {
         // Initialize geometry to default tag and frame.
         this.updateGeometryToTagFrame(this.currentTag, 0);
     }
+    getFrame() {
+        return this.currentFrame;
+    }
+    getTag() {
+        return this.currentTag;
+    }
     updateGeometryToTagFrame(tagName, frameNo) {
         var _a;
         const { textureWidth, textureHeight, offset, clipping, outlineSpread } = this;
@@ -152,7 +166,7 @@ class ThreeAseprite extends three_1.EventDispatcher {
         const tagDef = this.frames[tagName];
         if (tagDef === undefined)
             throw new Error(`[ThreeAseprite]: unknown tag "${tagName}".`);
-        const frameDef = tagDef[frameNo];
+        const frameDef = tagDef[frameNo % tagDef.length];
         if (frameDef === undefined)
             throw new Error(`[ThreeAseprite]: unknown frame "${tagName}#${frameNo}".`);
         for (let li = 0; li < this.orderedLayers.length; li++) {
@@ -196,7 +210,7 @@ class ThreeAseprite extends three_1.EventDispatcher {
                 }
             }
             // Apply optional outlining.
-            if (outlineSpread !== undefined) {
+            if (outlineSpread !== undefined && layerFrameDef !== emptyFrameDef) {
                 x -= outlineSpread;
                 y -= outlineSpread;
                 w += outlineSpread * 2;
@@ -227,6 +241,145 @@ class ThreeAseprite extends three_1.EventDispatcher {
             // Update bounding box.
             this.geometry.computeBoundingBox();
         }
+    }
+    expandLayerGroups(attrMap) {
+        const assignments = {};
+        const toAssign = [...Object.entries(attrMap)];
+        while (toAssign.length > 0) {
+            const assignment = toAssign.pop();
+            if (assignment === undefined)
+                break;
+            const [layer, value] = assignment;
+            assignments[layer] = value;
+            if (this.layerGroups[layer]) {
+                for (const subLayer of this.layerGroups[layer]) {
+                    toAssign.push([subLayer, value]);
+                }
+            }
+        }
+        return assignments;
+    }
+    /**
+     * Sets the sprite's opacity.
+     * @param opacity
+     */
+    setOpacity(opacity) {
+        this.material.uniforms.opacity.value = opacity;
+        this.material.uniformsNeedUpdate = true;
+    }
+    /**
+     * Sets an optional multiplicative color for the sprite.
+     * @param color
+     */
+    setColor(color) {
+        this.material.uniforms.color.value.set(color);
+        this.material.uniformsNeedUpdate = true;
+    }
+    /**
+     * Sets an optional fade color for the sprite.
+     * @param fadeColor
+     * @param fadeAmount
+     */
+    setFade(fadeColor, fadeAmount) {
+        const color = new three_1.Color(fadeColor);
+        const fade4 = this.material.uniforms.fade.value;
+        fade4.set(color.r, color.g, color.b, fadeAmount);
+        this.material.uniformsNeedUpdate = true;
+    }
+    /**
+     * Sets an optional opacity per layer, plus an optional default to apply to all others.
+     * This is useful when sprites have multiple conditional layers.
+     * @param opacityMap
+     * @param defaultOpacity
+     */
+    setLayerOpacities(opacityMap, defaultOpacity) {
+        var _a;
+        const opacityAssignments = this.expandLayerGroups(opacityMap);
+        for (let li = 0; li < this.orderedLayers.length; li++) {
+            const layerName = this.orderedLayers[li];
+            const layerOpacity = (_a = opacityAssignments[layerName]) !== null && _a !== void 0 ? _a : defaultOpacity;
+            if (layerOpacity === undefined)
+                continue;
+            const oi = li * 4;
+            this.vtxOpacity[oi + 0] = layerOpacity;
+            this.vtxOpacity[oi + 1] = layerOpacity;
+            this.vtxOpacity[oi + 2] = layerOpacity;
+            this.vtxOpacity[oi + 3] = layerOpacity;
+        }
+        this.geometry.getAttribute("vtxOpacity").needsUpdate = true;
+    }
+    /**
+     * Sets an optional multiplicative color per layer. This is useful for sprite recoloration.
+     * @param colorMap
+     */
+    setLayerColors(colorMap) {
+        const colorAssignments = this.expandLayerGroups(colorMap);
+        const color = new three_1.Color();
+        for (let li = 0; li < this.orderedLayers.length; li++) {
+            const layerName = this.orderedLayers[li];
+            const colorAssignment = colorAssignments[layerName];
+            if (colorAssignment === undefined)
+                continue;
+            color.set(colorAssignment);
+            const ci = li * 12;
+            color.toArray(this.vtxColor, ci + 0);
+            color.toArray(this.vtxColor, ci + 3);
+            color.toArray(this.vtxColor, ci + 6);
+            color.toArray(this.vtxColor, ci + 9);
+        }
+        this.geometry.getAttribute("vtxColor").needsUpdate = true;
+    }
+    /**
+     * Sets an optional fade color and amount per layer. This is useful for sprite recoloration.
+     * @param colorMap
+     */
+    setLayerFades(colorMap) {
+        const fadeAssignments = this.expandLayerGroups(colorMap);
+        const color = new three_1.Color();
+        for (let li = 0; li < this.orderedLayers.length; li++) {
+            const layerName = this.orderedLayers[li];
+            const fade = fadeAssignments[layerName];
+            if (fade === undefined)
+                continue;
+            const [colorRep, fadeAmount] = fade;
+            color.set(colorRep);
+            const fi = li * 16;
+            color.toArray(this.vtxFade, fi + 0);
+            color.toArray(this.vtxFade, fi + 4);
+            color.toArray(this.vtxFade, fi + 8);
+            color.toArray(this.vtxFade, fi + 12);
+            this.vtxFade[fi + 3] = fadeAmount;
+            this.vtxFade[fi + 7] = fadeAmount;
+            this.vtxFade[fi + 11] = fadeAmount;
+            this.vtxFade[fi + 15] = fadeAmount;
+        }
+        this.geometry.getAttribute("vtxFade").needsUpdate = true;
+    }
+    /**
+     * Sets an optional outline on the sprite. Outlines expand the boundaries
+     * of the sprite by a specified number of pixels with a specified color and opacity.
+     *
+     * When using this feature, ensure the sprite sheet has a padding equal or greater
+     * than outlineWidth; otherwise, collisions with other frames will occur.
+     * @param outlineWidth - width, in sprite-space pixels, of the outline.
+     * @param outlineColor - color of the outline.
+     * @param outlineOpacity - opacity of the outline.
+     */
+    setOutline(outlineWidth, outlineColor, outlineOpacity) {
+        const uOutlineSpread = this.material.uniforms.outlineSpread.value;
+        const uOutline = this.material.uniforms.outline.value;
+        if (outlineWidth > 0 && outlineColor !== undefined) {
+            const outlineColorAsColor = new three_1.Color(outlineColor);
+            this.outlineSpread = outlineWidth;
+            uOutlineSpread.set(outlineWidth / this.textureWidth, outlineWidth / this.textureHeight);
+            uOutline.set(outlineColorAsColor.r, outlineColorAsColor.g, outlineColorAsColor.b, outlineOpacity !== null && outlineOpacity !== void 0 ? outlineOpacity : 1);
+        }
+        else {
+            this.outlineSpread = 0;
+            uOutlineSpread.set(0, 0);
+            uOutline.set(0, 0, 0, 0);
+        }
+        this.material.uniformsNeedUpdate = true;
     }
 }
 exports.ThreeAseprite = ThreeAseprite;

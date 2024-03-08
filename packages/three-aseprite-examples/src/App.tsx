@@ -3,20 +3,21 @@ import React from 'react';
 import './App.css';
 
 import {
-  BoxGeometry,
-  Mesh,
-  MeshBasicMaterial,
   NearestFilter,
   OrthographicCamera,
   Scene,
   TextureLoader,
   WebGLRenderer  
 } from "three";
+import GUI from "three/examples/jsm/libs/lil-gui.module.min";
 
 import { ThreeAseprite } from "three-aseprite";
 
 import deerIdleJSON from "./assets/deer-character-idle-hash.json";
 import deerIdlePng from "./assets/deer-character-idle.png";
+
+import deerPackedJSON from "./assets/deer-character-packed-hash.json";
+import deerPackedPng from "./assets/deer-character-packed.png";
 
 type IState = {
   mounted?: boolean;
@@ -54,22 +55,36 @@ function App() {
       lastFrameTime = now;
 
       counter += timeDelta;
-      const frame = Math.floor((counter / 100) % 7);
-      sprite?.updateGeometryToTagFrame("Default", frame);
+      const frame = Math.floor((counter / 50) % 12);
+      sprite?.updateGeometryToTagFrame("Run", frame);
 
       renderer.render(scene, camera);
       requestAnimationFrame(doFrame);
     };
 
     const init = async () => {
-      const texture = await new TextureLoader().loadAsync(deerIdlePng);
+      const texture = await new TextureLoader().loadAsync(deerPackedPng);
       texture.minFilter = NearestFilter;
       texture.magFilter = NearestFilter;
 
       sprite = new ThreeAseprite({
         texture,
-        sourceJSON: deerIdleJSON,
-        frameName: ({ frame }: { frame: number }) => `${ frame + 12 }`
+        sourceJSON: deerPackedJSON,
+        frameName: ({
+          frame,
+          layerName
+        }) => `(${layerName}) ${frame}`
+      });
+      sprite.setLayerOpacities({
+        "Run": 1,
+      }, 0);
+      sprite.setOutline(1, 0x000000);
+      sprite.setLayerColors({
+        "Run-Clothes": 0xaaeeff,
+        "Run-Kilt": 0x99bbcc,
+      });
+      sprite.setLayerFades({
+        "Run-Body": [0xffffff, 1]
       });
 
       scene.add(sprite.mesh);
@@ -88,16 +103,8 @@ function App() {
       <header className="App-header">
         <canvas ref={canvasRef} width={200} height={200} />
         <p>
-          Edit <code>src/App.tsx</code> and save to reload.
+          Demo of <code>three-aseprite</code> sprite rendering.
         </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
       </header>
     </div>
   );
