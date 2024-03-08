@@ -1,0 +1,75 @@
+{ "frames": {
+   "12": {
+    "frame": { "x": 2, "y": 2, "w": 20, "h": 50 },
+    "rotated": false,
+    "trimmed": true,
+    "spriteSourceSize": { "x": 9, "y": 2, "w": 20, "h": 50 },
+    "sourceSize": { "w": 49, "h": 53 },
+    "duration": 100
+   },
+   "13": {
+    "frame": { "x": 24, "y": 2, "w": 20, "h": 50 },
+    "rotated": false,
+    "trimmed": true,
+    "spriteSourceSize": { "x": 9, "y": 3, "w": 20, "h": 50 },
+    "sourceSize": { "w": 49, "h": 53 },
+    "duration": 100
+   },
+   "14": {
+    "frame": { "x": 46, "y": 2, "w": 21, "h": 50 },
+    "rotated": false,
+    "trimmed": true,
+    "spriteSourceSize": { "x": 8, "y": 3, "w": 21, "h": 50 },
+    "sourceSize": { "w": 49, "h": 53 },
+    "duration": 100
+   },
+   "15": {
+    "frame": { "x": 69, "y": 2, "w": 22, "h": 51 },
+    "rotated": false,
+    "trimmed": true,
+    "spriteSourceSize": { "x": 7, "y": 2, "w": 22, "h": 51 },
+    "sourceSize": { "w": 49, "h": 53 },
+    "duration": 100
+   },
+   "16": {
+    "frame": { "x": 93, "y": 2, "w": 22, "h": 51 },
+    "rotated": false,
+    "trimmed": true,
+    "spriteSourceSize": { "x": 7, "y": 2, "w": 22, "h": 51 },
+    "sourceSize": { "w": 49, "h": 53 },
+    "duration": 100
+   },
+   "17": {
+    "frame": { "x": 2, "y": 55, "w": 21, "h": 51 },
+    "rotated": false,
+    "trimmed": true,
+    "spriteSourceSize": { "x": 8, "y": 2, "w": 21, "h": 51 },
+    "sourceSize": { "w": 49, "h": 53 },
+    "duration": 100
+   },
+   "18": {
+    "frame": { "x": 25, "y": 55, "w": 21, "h": 51 },
+    "rotated": false,
+    "trimmed": true,
+    "spriteSourceSize": { "x": 8, "y": 2, "w": 21, "h": 51 },
+    "sourceSize": { "w": 49, "h": 53 },
+    "duration": 100
+   },
+   "19": {
+    "frame": { "x": 48, "y": 55, "w": 21, "h": 50 },
+    "rotated": false,
+    "trimmed": true,
+    "spriteSourceSize": { "x": 8, "y": 3, "w": 21, "h": 50 },
+    "sourceSize": { "w": 49, "h": 53 },
+    "duration": 100
+   }
+ },
+ "meta": {
+  "app": "https://www.aseprite.org/",
+  "version": "1.2.40-arm64",
+  "image": "deer-character-idle.png",
+  "format": "I8",
+  "size": { "w": 128, "h": 106 },
+  "scale": "1"
+ }
+}

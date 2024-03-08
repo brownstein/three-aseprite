@@ -1,0 +1,11 @@
+import { RawShaderMaterial, Texture } from "three";
+export declare const asepriteShaderMaterialVertexShader = "\nprecision mediump float;\n\nuniform mat4 modelViewMatrix;\nuniform mat4 projectionMatrix;\nuniform float opacity;\nuniform vec4 fade;\n\nattribute vec3 position;\nattribute vec2 uv;\nattribute vec4 vtxFade;\nattribute float vtxOpacity;\n\nvarying vec2 vUv;\nvarying vec4 vFade;\nvarying float vOpacity;\n\nvoid main() {\n\tvUv = uv;\n\n\tvFade = vec4(0.0, 0.0, 0.0, 0.0);\n\tif (fade.a > 0.0) vFade = fade;\n\tif (vtxFade.a > 0.0) vFade = vFade * ((vFade.a + vtxFade.a) - vtxFade.a) + vtxFade * vtxFade.a;\n\t\n\tvOpacity = vtxOpacity * opacity;\n\n\tgl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);\n}\n";
+export declare const asepriteShaderMaterialFragmentShader = "\nprecision mediump float;\n\nuniform sampler2D map;\nuniform vec2 outlineSpread;\nuniform vec4 outline;\n\nvarying vec2 vUv;\nvarying vec4 vFade;\nvarying float vOpacity;\n\nvoid main() {\n\tvec4 color = texture2D(map, vUv);\n\t\n\t// Support outlines.\n\tif (color.a < 1.0 && (outlineSpread.x > 0.0 || outlineSpread.y > 0.0)) {\n\t\tvec4 color1 = texture2D(map, vUv - vec2(outlineSpread.x, 0.0));\n\t\tvec4 color2 = texture2D(map, vUv + vec2(outlineSpread.x, 0.0));\n\t\tvec4 color3 = texture2D(map, vUv - vec2(0.0, outlineSpread.y));\n\t\tvec4 color4 = texture2D(map, vUv + vec2(0.0, outlineSpread.y));\n\t\tif (color1.a > color.a) {\n\t\t\tcolor = outline;\n\t\t}\n\t\telse if (color2.a > color.a) {\n\t\t\tcolor = outline;\n\t\t}\n\t\telse if (color3.a > color.a) {\n\t\t\tcolor = outline;\n\t\t}\n\t\telse if (color4.a > color.a) {\n\t\t\tcolor = outline;\n\t\t}\n\t}\n\t\n\t// Support fading to a color.\n\tif (vFade.a > 0.0) {\n\t\tcolor.rgb = color.rgb * (1.0 - vFade.a) + vFade.rgb * vFade.a;\n\t}\n\tcolor.a = color.a * vOpacity;\n\n\t// Discard at low opacity.\n\tif (color.a < 0.01) discard;\n\tgl_FragColor = color;\n}\n";
+export type AsepriteShaderMaterialProps = {
+    texture: Texture;
+};
+/**
+ * Creates a ShaderMaterial used to render sprites.
+ * @param props - properties of the material.
+ */
+export declare function createAspriteShaderMaterial(props: AsepriteShaderMaterialProps): RawShaderMaterial;
