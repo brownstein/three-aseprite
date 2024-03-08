@@ -1,8 +1,23 @@
 "use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __exportStar = (this && this.__exportStar) || function(m, exports) {
+    for (var p in m) if (p !== "default" && !Object.prototype.hasOwnProperty.call(exports, p)) __createBinding(exports, m, p);
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ThreeAseprite = exports.defaultTagName = exports.defaultLayerName = void 0;
 const three_1 = require("three");
 const aseprite_shader_material_1 = require("./aseprite-shader-material");
+__exportStar(require("./aseprite-export-types"), exports);
 // Empty frame definition for internal use.
 const emptyFrameDef = {
     frame: { x: 0, y: 0, w: 0, h: 0 },
@@ -22,7 +37,7 @@ class ThreeAseprite extends three_1.EventDispatcher {
         var _a, _b, _c, _d, _e, _f, _g;
         super();
         this.playingAnimation = true;
-        this.playingBackwards = false;
+        this.playingAnimationBackwards = false;
         this.layerGroups = {};
         this.currentFrame = 0;
         this.frames = {};
@@ -77,8 +92,8 @@ class ThreeAseprite extends three_1.EventDispatcher {
                 name: exports.defaultTagName,
                 from: 0,
                 to: Array.isArray(options.sourceJSON.frames)
-                    ? options.sourceJSON.frames.length
-                    : Object.keys(options.sourceJSON.frames).length,
+                    ? options.sourceJSON.frames.length - 1
+                    : Object.keys(options.sourceJSON.frames).length - 1,
                 direction: "forward"
             });
         }
@@ -148,14 +163,50 @@ class ThreeAseprite extends three_1.EventDispatcher {
         });
         // Create mesh.
         this.mesh = new three_1.Mesh(this.geometry, this.material);
+        // We assume the coordinate system is the same as screen-space coordinates in all math,
+        // buy typical camera coordinates are Y-up.
+        this.mesh.scale.y = -1;
         // Initialize geometry to default tag and frame.
         this.updateGeometryToTagFrame(this.currentTag, 0);
     }
-    getFrame() {
+    clone() {
+        // TODO: advance to the correct frame.
+        // TODO: copy opacity/color configs.
+        return new ThreeAseprite(this.options);
+    }
+    getCurrentFrame() {
         return this.currentFrame;
     }
-    getTag() {
+    getFrameDuration(frameNumber) {
+        const frameDefs = this.frames[this.currentTag];
+        if (frameDefs === undefined)
+            return 0;
+        const frameDef = frameDefs[frameNumber];
+        if (frameDef === undefined)
+            return 0;
+        for (const layerDef of Object.values(frameDef)) {
+            return layerDef.duration;
+        }
+        return 0;
+    }
+    getCurrentFrameDuration() {
+        const frameDefs = this.frames[this.currentTag];
+        if (frameDefs === undefined)
+            return 0;
+        const frameDef = frameDefs[this.currentFrame];
+        if (frameDef === undefined)
+            return 0;
+        for (const layerDef of Object.values(frameDef)) {
+            return layerDef.duration;
+        }
+        return 0;
+    }
+    getCurrentTag() {
         return this.currentTag;
+    }
+    getCurrentTagFrameCount() {
+        var _a, _b;
+        return (_b = (_a = this.frames[this.currentTag]) === null || _a === void 0 ? void 0 : _a.length) !== null && _b !== void 0 ? _b : 0;
     }
     updateGeometryToTagFrame(tagName, frameNo) {
         var _a;
@@ -211,6 +262,8 @@ class ThreeAseprite extends three_1.EventDispatcher {
             }
             // Apply optional outlining.
             if (outlineSpread !== undefined && layerFrameDef !== emptyFrameDef) {
+                sx -= outlineSpread;
+                sy -= outlineSpread;
                 x -= outlineSpread;
                 y -= outlineSpread;
                 w += outlineSpread * 2;
@@ -360,7 +413,7 @@ class ThreeAseprite extends three_1.EventDispatcher {
      * of the sprite by a specified number of pixels with a specified color and opacity.
      *
      * When using this feature, ensure the sprite sheet has a padding equal or greater
-     * than outlineWidth; otherwise, collisions with other frames will occur.
+     * than 2 * outlineWidth; otherwise, collisions with other frames will occur.
      * @param outlineWidth - width, in sprite-space pixels, of the outline.
      * @param outlineColor - color of the outline.
      * @param outlineOpacity - opacity of the outline.
@@ -380,6 +433,52 @@ class ThreeAseprite extends three_1.EventDispatcher {
             uOutline.set(0, 0, 0, 0);
         }
         this.material.uniformsNeedUpdate = true;
+    }
+    /**
+     * Get available layers.
+     * @returns
+     */
+    getLayers() {
+        return [...this.orderedLayers];
+    }
+    /**
+     * Get available layer groups.
+     * @returns
+     */
+    getLayerGroups() {
+        return this.layerGroups;
+    }
+    /**
+     * Get available tags.
+     * @returns
+     */
+    getTags() {
+        return Object.keys(this.frames);
+    }
+    /**
+     * Determines whether a given layer of layer group is present within a given tag.
+     * This is primairly used by the example to produce a clickable group/tag matrix.
+     * @param layerOrGroupName
+     * @param tagName
+     * @param detectEmpty
+     */
+    hasLayerAtTag(layerOrGroupName, tagName, detectEmpty) {
+        const allSubLayers = Object.keys(this.expandLayerGroups({ [layerOrGroupName]: true }));
+        const tagFrames = this.frames[tagName];
+        for (let fi = 0; fi < tagFrames.length; fi++) {
+            const tagFrame = tagFrames[fi];
+            if (tagFrame === undefined)
+                continue;
+            for (const layerName of allSubLayers) {
+                const layerInfo = tagFrame[layerName];
+                if (layerInfo === undefined)
+                    continue;
+                if (detectEmpty && layerInfo.frame.w < 2 && layerInfo.frame.h < 2)
+                    continue;
+                return true;
+            }
+        }
+        return false;
     }
 }
 exports.ThreeAseprite = ThreeAseprite;

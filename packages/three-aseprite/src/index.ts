@@ -24,6 +24,8 @@ import {
   createAspriteShaderMaterial
 } from "./aseprite-shader-material";
 
+export * from "./aseprite-export-types";
+
 // Interface type for vectors passed to the sprite.
 export type IVector2 = {
   x: number;
@@ -105,11 +107,11 @@ export class ThreeAseprite<LayerNames extends string = string> extends EventDisp
   public mesh: Mesh;
   public texture: Texture;
   public playingAnimation: boolean = true;
-  public playingBackwards: boolean = false;
+  public playingAnimationBackwards: boolean = false;
   public readonly sourceJSON: AsepriteJSON;
   private orderedLayers: string[];
   private layerGroups: LayerGrouping = {};
-  private currentTag: string;
+  currentTag: string;
   private currentFrame: number = 0;
   private frames: { [key: string]: FrameSet[] } = {};
   private geometry: BufferGeometry;
@@ -177,8 +179,8 @@ export class ThreeAseprite<LayerNames extends string = string> extends EventDisp
         name: defaultTagName,
         from: 0,
         to: Array.isArray(options.sourceJSON.frames)
-          ? options.sourceJSON.frames.length
-          : Object.keys(options.sourceJSON.frames).length,
+          ? options.sourceJSON.frames.length - 1
+          : Object.keys(options.sourceJSON.frames).length - 1,
         direction: "forward"
       });
     }
@@ -254,14 +256,46 @@ export class ThreeAseprite<LayerNames extends string = string> extends EventDisp
     // Create mesh.
     this.mesh = new Mesh(this.geometry, this.material);
 
+    // We assume the coordinate system is the same as screen-space coordinates in all math,
+    // buy typical camera coordinates are Y-up.
+    this.mesh.scale.y = -1;
+
     // Initialize geometry to default tag and frame.
     this.updateGeometryToTagFrame(this.currentTag, 0);
   }
-  getFrame() {
+  clone(): ThreeAseprite<LayerNames> {
+    // TODO: advance to the correct frame.
+    // TODO: copy opacity/color configs.
+    return new ThreeAseprite(this.options);
+  }
+  getCurrentFrame() {
     return this.currentFrame;
   }
-  getTag() {
+  getFrameDuration(frameNumber: number) {
+    const frameDefs = this.frames[this.currentTag];
+    if (frameDefs === undefined) return 0;
+    const frameDef = frameDefs[frameNumber];
+    if (frameDef === undefined) return 0;
+    for (const layerDef of Object.values(frameDef)) {
+      return layerDef.duration;
+    }
+    return 0;
+  }
+  getCurrentFrameDuration() {
+    const frameDefs = this.frames[this.currentTag];
+    if (frameDefs === undefined) return 0;
+    const frameDef = frameDefs[this.currentFrame];
+    if (frameDef === undefined) return 0;
+    for (const layerDef of Object.values(frameDef)) {
+      return layerDef.duration;
+    }
+    return 0;
+  }
+  getCurrentTag() {
     return this.currentTag;
+  }
+  getCurrentTagFrameCount() {
+    return this.frames[this.currentTag]?.length ?? 0;
   }
   updateGeometryToTagFrame(tagName: string, frameNo: number) {
     const { textureWidth, textureHeight, offset, clipping, outlineSpread } = this;
@@ -316,6 +350,8 @@ export class ThreeAseprite<LayerNames extends string = string> extends EventDisp
 
       // Apply optional outlining.
       if (outlineSpread !== undefined && layerFrameDef !== emptyFrameDef) {
+        sx -= outlineSpread;
+        sy -= outlineSpread;
         x -= outlineSpread;
         y -= outlineSpread;
         w += outlineSpread * 2;
@@ -463,7 +499,7 @@ export class ThreeAseprite<LayerNames extends string = string> extends EventDisp
    * of the sprite by a specified number of pixels with a specified color and opacity.
    * 
    * When using this feature, ensure the sprite sheet has a padding equal or greater
-   * than outlineWidth; otherwise, collisions with other frames will occur.
+   * than 2 * outlineWidth; otherwise, collisions with other frames will occur.
    * @param outlineWidth - width, in sprite-space pixels, of the outline.
    * @param outlineColor - color of the outline.
    * @param outlineOpacity - opacity of the outline.
@@ -487,5 +523,53 @@ export class ThreeAseprite<LayerNames extends string = string> extends EventDisp
       uOutline.set(0, 0, 0, 0);
     }
     this.material.uniformsNeedUpdate = true;
+  }
+  /**
+   * Get available layers.
+   * @returns 
+   */
+  getLayers() {
+    return [...this.orderedLayers];
+  }
+  /**
+   * Get available layer groups.
+   * @returns 
+   */
+  getLayerGroups() {
+    return this.layerGroups;
+  }
+  /**
+   * Get available tags.
+   * @returns
+   */
+  getTags() {
+    return Object.keys(this.frames);
+  }
+  /**
+   * Determines whether a given layer of layer group is present within a given tag.
+   * This is primairly used by the example to produce a clickable group/tag matrix.
+   * @param layerOrGroupName 
+   * @param tagName 
+   * @param detectEmpty
+   */
+  hasLayerAtTag(layerOrGroupName: LayerNames, tagName: string, detectEmpty?: boolean) {
+    const allSubLayers = Object.keys(
+      this.expandLayerGroups(
+        { [layerOrGroupName]: true } as
+        Partial<Record<LayerNames, boolean>>
+      )
+    );
+    const tagFrames = this.frames[tagName];
+    for (let fi = 0; fi < tagFrames.length; fi++) {
+      const tagFrame = tagFrames[fi];
+      if (tagFrame === undefined) continue;
+      for (const layerName of allSubLayers) {
+        const layerInfo = tagFrame[layerName];
+        if (layerInfo === undefined) continue;
+        if (detectEmpty && layerInfo.frame.w < 2 && layerInfo.frame.h < 2) continue;
+        return true;
+      }
+    }
+    return false;
   }
 }

@@ -13,9 +13,18 @@
   }
 }
 
-.App-header {
+.App {
   background-color: #282c34;
   min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: white;
+}
+
+.App-header {
+  background-color: #282c34;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -28,11 +37,89 @@
   color: #61dafb;
 }
 
-@keyframes App-logo-spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
+.sprite-selector {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+}
+
+.sprite-selector > div {
+  margin-right: 6px;
+}
+
+.sprite-config {
+  font-size: 12pt;
+  display: flex;
+  flex-direction: row;
+  align-items: start;
+  justify-content: start;
+}
+
+.sprite-config h3 {
+  text-align: left;
+}
+
+.sprite-config > div {
+  display: flex;
+  flex-direction: column;
+  align-items: start;
+  justify-content: start;
+  margin-right: 2em;
+}
+
+.sprite-config > div:last-child {
+  margin-right: 0;
+}
+
+.sprite-config label {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: start;
+  height: 2em;
+}
+
+.sprite-config label div {
+  margin-right: 8px;
+  width: 100px;
+  text-align: right;
+}
+
+.sprite-config label div::after {
+  content: ":";
+}
+
+table {
+  text-align: left;
+  font-size: 12px;
+}
+
+table td {
+  width: 16px;
+  height: 16px;
+  position: relative;
+}
+
+table td:first-child {
+  width: auto;
+  text-align: right;
+  padding-right: 6px;
+}
+
+table thead tr:first-child td div {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  transform: rotate(-45deg);
+  transform-origin: 0 0;
+  width: 150px;
+}
+
+.goto-layer-tag {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background-color: #fff;
+  cursor: pointer;
+  border-radius: 100%;
 }

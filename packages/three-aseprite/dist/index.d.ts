@@ -1,5 +1,6 @@
 import { ColorRepresentation, EventDispatcher, Mesh, Texture } from "three";
 import { AsepriteJSON } from "./aseprite-export-types";
+export * from "./aseprite-export-types";
 export type IVector2 = {
     x: number;
     y: number;
@@ -19,6 +20,9 @@ export type ThreeAsepriteOptions<LayerName> = {
     layers?: LayerName[];
     layerDepth?: number;
 };
+type LayerGrouping = {
+    [key: string]: string[];
+};
 export type LayerClipping = {
     xMin: number;
     xMax: number;
@@ -34,11 +38,11 @@ export declare class ThreeAseprite<LayerNames extends string = string> extends E
     mesh: Mesh;
     texture: Texture;
     playingAnimation: boolean;
-    playingBackwards: boolean;
+    playingAnimationBackwards: boolean;
     readonly sourceJSON: AsepriteJSON;
     private orderedLayers;
     private layerGroups;
-    private currentTag;
+    currentTag: string;
     private currentFrame;
     private frames;
     private geometry;
@@ -58,8 +62,12 @@ export declare class ThreeAseprite<LayerNames extends string = string> extends E
     private clipping?;
     private outlineSpread?;
     constructor(options: ThreeAsepriteOptions<LayerNames>);
-    getFrame(): number;
-    getTag(): string;
+    clone(): ThreeAseprite<LayerNames>;
+    getCurrentFrame(): number;
+    getFrameDuration(frameNumber: number): number;
+    getCurrentFrameDuration(): number;
+    getCurrentTag(): string;
+    getCurrentTagFrameCount(): number;
     updateGeometryToTagFrame(tagName: string, frameNo: number): void;
     protected expandLayerGroups<T>(attrMap: Partial<Record<LayerNames, T>>): Partial<Record<LayerNames, T>>;
     /**
@@ -100,10 +108,33 @@ export declare class ThreeAseprite<LayerNames extends string = string> extends E
      * of the sprite by a specified number of pixels with a specified color and opacity.
      *
      * When using this feature, ensure the sprite sheet has a padding equal or greater
-     * than outlineWidth; otherwise, collisions with other frames will occur.
+     * than 2 * outlineWidth; otherwise, collisions with other frames will occur.
      * @param outlineWidth - width, in sprite-space pixels, of the outline.
      * @param outlineColor - color of the outline.
      * @param outlineOpacity - opacity of the outline.
      */
     setOutline(outlineWidth: number, outlineColor?: ColorRepresentation, outlineOpacity?: number): void;
+    /**
+     * Get available layers.
+     * @returns
+     */
+    getLayers(): string[];
+    /**
+     * Get available layer groups.
+     * @returns
+     */
+    getLayerGroups(): LayerGrouping;
+    /**
+     * Get available tags.
+     * @returns
+     */
+    getTags(): string[];
+    /**
+     * Determines whether a given layer of layer group is present within a given tag.
+     * This is primairly used by the example to produce a clickable group/tag matrix.
+     * @param layerOrGroupName
+     * @param tagName
+     * @param detectEmpty
+     */
+    hasLayerAtTag(layerOrGroupName: LayerNames, tagName: string, detectEmpty?: boolean): boolean;
 }
