@@ -80,18 +80,31 @@ type FrameInfo = {
   layerFrames: Record<string, AsepriteJSONFrame>;
 }
 
+type Trigger<EventNames> = {
+  tagName: string | null;
+  eventName: EventNames;
+};
+
+export type FrameTriggerEvent<EventNames> = {
+  type: EventNames;
+};
+
 export const defaultLayerName = "Default";
 export const defaultTagName = "Default";
 
 /**
  * Three.js aseprite sprite renderer class.
  */
-export class ThreeAseprite<LayerNames extends string = string> extends EventDispatcher {
+export class ThreeAseprite<
+  LayerNames extends string = string,
+  EventNames extends string = string,
+> extends EventDispatcher<Record<EventNames, FrameTriggerEvent<EventNames>>> {
   public mesh: Mesh;
   public texture: Texture;
   public playingAnimation: boolean = true;
   public playingAnimationBackwards: boolean = false;
   public readonly sourceJSON: AsepriteJSON;
+
   private frames: Record<number, FrameInfo> = {};
   private tags: Record<string, AsepriteJSONFrameTag> = {};
   private orderedLayers: string[];
@@ -116,6 +129,7 @@ export class ThreeAseprite<LayerNames extends string = string> extends EventDisp
   private options: ThreeAsepriteOptions<LayerNames>;
   private clipping?: LayerClipping;
   private outlineSpread?: number;
+  private triggers: Record<number, Trigger<EventNames>[]> = {};
 
   constructor(options: ThreeAsepriteOptions<LayerNames>) {
     super();
@@ -189,9 +203,9 @@ export class ThreeAseprite<LayerNames extends string = string> extends EventDisp
     if (framesByFilenameKeys.length === 0) throw new Error("[ThreeAseprite]: no frames present in source JSON.");
 
     // Populate frames. This is easy if either:
-    // - there are layers, tags, and there's a frameName function
-    // - there are no layers or tags
-    // TODO: support pattern matching
+    // - there are layers, tags, and there's a frameName function.
+    // - there are no layers or tags.
+    // TODO: support pattern matching.
     if (this.minFrame === -1) {
       this.minFrame = Number.parseInt(framesByFilenameKeys[0]);
       if (Number.isNaN(this.minFrame)) throw new Error("[ThreeAseprite]: unable to resolve first frame index for sprite.");
@@ -335,6 +349,15 @@ export class ThreeAseprite<LayerNames extends string = string> extends EventDisp
       frameNo = ((frameNo - frameNoMin) + step + frameNoRange) % frameNoRange + frameNoMin;
       frame = this.frames[frameNo];
       if (frame === undefined) return;
+      const triggers = this.triggers[frameNo];
+      if (triggers !== undefined) {
+        for (const trigger of triggers) {
+          if (trigger.tagName !== this.currentTag) continue;
+          this.dispatchEvent({
+            type: trigger.eventName as Extract<EventNames, string>
+          });
+        }
+      }
     }
     this.currentFrame = frameNo;
     this.currentFrameTime = -remainingDeltaMs;
@@ -621,6 +644,62 @@ export class ThreeAseprite<LayerNames extends string = string> extends EventDisp
    */
   getTags() {
     return this.tags;
+  }
+  /**
+   * Adds an event trigger at the specified frame.
+   * @param frameNo
+   * @param eventName 
+   */
+  addFrameTrigger(frameNo: number, eventName: EventNames) {
+    const trigger: Trigger<EventNames> = {
+      tagName: null,
+      eventName
+    };
+    if (this.triggers[frameNo] === undefined) this.triggers[frameNo] = [];
+    this.triggers[frameNo].push(trigger); 
+  }
+  /**
+   * Adds an event trigger at the specified tag and frame.
+   * @param tagName
+   * @param tagFrameNo 
+   * @param eventName 
+   * @returns 
+   */
+  addTagFrameTrigger(tagName: string, tagFrameNo: number, eventName: EventNames) {
+    const tag = this.tags[tagName];
+    if (tag === undefined) return;
+    const frameNo = tag.from + tagFrameNo;
+    const trigger: Trigger<EventNames> = {
+      tagName,
+      eventName
+    };
+    if (this.triggers[frameNo] === undefined) this.triggers[frameNo] = [];
+    this.triggers[frameNo].push(trigger);
+  }
+  /**
+   * Removes an event trigger.
+   * @param frameNo 
+   * @param eventName 
+   */
+  removeFrameTrigger(frameNo: number, eventName: EventNames) {
+    if (this.triggers[frameNo]) this.triggers[frameNo] = this.triggers[frameNo].filter(t => {
+      if (t.eventName !== eventName) return true;
+      if (t.tagName !== null) return true;
+      return false;
+    });
+  }
+  /**
+   * Removes a tagged event trigger.
+   */
+  removeTagFrameTrigger(tagName: string, tagFrameNo: number, eventName: EventNames) {
+    const tag = this.tags[tagName];
+    if (tag === undefined) return;
+    const frameNo = tag.from + tagFrameNo;
+    if (this.triggers[frameNo]) this.triggers[frameNo] = this.triggers[frameNo].filter(t => {
+      if (t.eventName !== eventName) return true;
+      if (t.tagName !== tagName) return true;
+      return false;
+    });
   }
   /**
    * Determines whether a given layer of layer group is present within a given tag.
