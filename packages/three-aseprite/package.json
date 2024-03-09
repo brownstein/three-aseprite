@@ -9,7 +9,7 @@
     "sprite"
   ],
   "author": "Robert Brownstein <robert.brownstein@gmail.com>",
-  "homepage": "",
+  "homepage": "https://github.com/brownstein/three-aseprite/tree/main/packages/three-aseprite",
   "license": "MIT",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -34,8 +34,7 @@
   },
   "directories": {
     "src": "src",
-    "dist": "dist",
-    "test": "__tests__"
+    "dist": "dist"
   },
   "files": [
     "src"
