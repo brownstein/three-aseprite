@@ -62,6 +62,7 @@ function App() {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
+    let mounted = true;
     iState.mounted = true;
 
     const renderer = new WebGLRenderer({
@@ -76,21 +77,16 @@ function App() {
     const scene = new Scene();
     iState.scene = scene;
     let lastFrameTime = Date.now();
-    let counter = 0;
 
     const doFrame = () => {
-      if (!iState.mounted) return;
+      if (!mounted) return;
       const sprite = iState.sprite;
       if (sprite) {
         const now = Date.now();
         const timeDelta = now - lastFrameTime;
         lastFrameTime = now;
 
-        counter += timeDelta;
-        // FIXME.
-        const frameCount = sprite.getCurrentTagFrameCount() || 1;
-        const frame = Math.floor(counter / 50) % frameCount;
-        sprite.updateGeometryToTagFrame(sprite.getCurrentTag(), frame);
+        sprite.animate(timeDelta);
       }
 
       renderer.render(scene, camera);
@@ -99,6 +95,7 @@ function App() {
 
     doFrame();
     return () => {
+      mounted = false;
       iState.mounted = false;
     };
   }, []);
@@ -116,7 +113,7 @@ function App() {
       const sourceJSON = spriteConfig.json;
       const frameName = !!spriteConfig.json.meta.layers
         ? ({ layerName, frame }: { layerName: string, frame: number}) => `(${layerName}) ${frame}`
-        : ({ frame }: { frame: number }) => `${frame + (spriteConfig.defaultFrameOffset ?? 0)}`;
+        : undefined;
       const sprite = new ThreeAseprite({
         texture,
         sourceJSON,
@@ -159,7 +156,7 @@ function App() {
           }}
           >
             {sprites.map(s => (
-              <option value={s.name}>{s.name}</option>
+              <option key={s.name} value={s.name}>{s.name}</option>
             ))}
         </select>
       </label>

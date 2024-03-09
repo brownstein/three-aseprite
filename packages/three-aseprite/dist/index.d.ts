@@ -1,5 +1,5 @@
 import { ColorRepresentation, EventDispatcher, Mesh, Texture } from "three";
-import { AsepriteJSON } from "./aseprite-export-types";
+import { AsepriteJSON, AsepriteJSONFrameTag } from "./aseprite-export-types";
 export * from "./aseprite-export-types";
 export type IVector2 = {
     x: number;
@@ -7,15 +7,13 @@ export type IVector2 = {
 };
 export type FrameParams = {
     frame: number;
-    tagFrame: number;
-    tagName: string;
     layerName: string;
 };
 export type FrameNameSpecifier = (frameParams: FrameParams) => string;
 export type ThreeAsepriteOptions<LayerName> = {
     texture: Texture;
     sourceJSON: AsepriteJSON;
-    frameName: FrameNameSpecifier;
+    frameName?: FrameNameSpecifier;
     offset?: IVector2;
     layers?: LayerName[];
     layerDepth?: number;
@@ -40,16 +38,20 @@ export declare class ThreeAseprite<LayerNames extends string = string> extends E
     playingAnimation: boolean;
     playingAnimationBackwards: boolean;
     readonly sourceJSON: AsepriteJSON;
+    private frames;
+    private tags;
     private orderedLayers;
     private layerGroups;
-    currentTag: string;
+    private minFrame;
+    private maxFrame;
     private currentFrame;
-    private frames;
+    private currentFrameTime;
+    private currentTag;
+    private currentTagFrame;
     private geometry;
     private material;
     private textureWidth;
     private textureHeight;
-    private frameTime;
     private vtxIndex;
     private vtxPos;
     private vtxUV;
@@ -57,7 +59,6 @@ export declare class ThreeAseprite<LayerNames extends string = string> extends E
     private vtxColor;
     private vtxFade;
     private offset;
-    private emitByTagFrame;
     private options;
     private clipping?;
     private outlineSpread?;
@@ -66,9 +67,15 @@ export declare class ThreeAseprite<LayerNames extends string = string> extends E
     getCurrentFrame(): number;
     getFrameDuration(frameNumber: number): number;
     getCurrentFrameDuration(): number;
-    getCurrentTag(): string;
-    getCurrentTagFrameCount(): number;
-    updateGeometryToTagFrame(tagName: string, frameNo: number): void;
+    getCurrentTag(): string | null;
+    getCurrentTagFrame(): number | null;
+    getCurrentTagFrameCount(): number | null;
+    animate(deltaMs: number): void;
+    gotoTag(tagName: string | null): void;
+    gotoFrame(frameNo: number): void;
+    gotoTagFrame(tagFrameNo: number): void;
+    setClipping(clipping: LayerClipping | null): void;
+    private updateGeometryToFrame;
     protected expandLayerGroups<T>(attrMap: Partial<Record<LayerNames, T>>): Partial<Record<LayerNames, T>>;
     /**
      * Sets the sprite's opacity.
@@ -128,7 +135,7 @@ export declare class ThreeAseprite<LayerNames extends string = string> extends E
      * Get available tags.
      * @returns
      */
-    getTags(): string[];
+    getTags(): Record<string, AsepriteJSONFrameTag>;
     /**
      * Determines whether a given layer of layer group is present within a given tag.
      * This is primairly used by the example to produce a clickable group/tag matrix.

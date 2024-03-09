@@ -4,7 +4,7 @@ export type LayerGroupTagInfo = [string[], string[], boolean[][]];
 
 // Gets an ordered matrix of deer layers and tag presense.
 export function getLayerGroupTagInfo(sprite: ThreeAseprite): LayerGroupTagInfo | null {
-  const resultTags = sprite.getTags();
+  const resultTags = Object.keys(sprite.getTags());
   const resultGroupKeys = Object.keys(sprite.getLayerGroups());
   if (resultGroupKeys.length === 0) return null;
   const resultMatrix: boolean[][] = [];
@@ -12,7 +12,6 @@ export function getLayerGroupTagInfo(sprite: ThreeAseprite): LayerGroupTagInfo |
     const row: boolean[] = [];
     for (const tagName of resultTags) {
       const hasResult = sprite.hasLayerAtTag(layerGroup, tagName, true);
-      console.log("HR", hasResult);
       row.push(hasResult);
     }
     resultMatrix.push(row);

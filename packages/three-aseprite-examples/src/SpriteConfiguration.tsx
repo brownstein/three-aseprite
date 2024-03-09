@@ -39,7 +39,7 @@ export function SpriteConfiguration(props: SpriteConfigurationProps) {
     sprite.setOutline(...config.outline);
     if (layerGroupTagInfo) {
       if (config.layerGroupOpacity) sprite.setLayerOpacities(config.layerGroupOpacity, 0);
-      if (config.tag && sprite.getTags().find(t => t === config.tag)) sprite.currentTag = config.tag;
+      if (config.tag && sprite.getTags()[config.tag ?? ""]) sprite.gotoTag(config.tag);
     }
   }, [sprite, config, layerGroupTagInfo]);
 
@@ -129,17 +129,17 @@ export function SpriteConfiguration(props: SpriteConfigurationProps) {
             <tr>
               <td/>
               {layerGroupTagInfo[1].map((tagName) => (
-                <td><div>{tagName}</div></td>
+                <td key={tagName}><div>{tagName}</div></td>
               ))}
             </tr>
           </thead>
           <tbody>
             {
               layerGroupTagInfo[0].map((layerName, layerIndex) => (
-                <tr>
+                <tr key={layerName}>
                   <td>{layerName}</td>
                   {layerGroupTagInfo[1].map((tagName, tagIndex) => (
-                    <td>{layerGroupTagInfo[2][layerIndex][tagIndex]
+                    <td key={tagName}>{layerGroupTagInfo[2][layerIndex][tagIndex]
                       ? (
                         <div
                           className="goto-layer-tag"

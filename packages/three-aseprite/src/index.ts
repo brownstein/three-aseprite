@@ -14,7 +14,6 @@ import {
 } from "three";
 
 import {
-  AsepriteFramesObject,
   AsepriteJSON,
   AsepriteJSONFrame,
   AsepriteJSONFrameTag,
@@ -35,8 +34,6 @@ export type IVector2 = {
 // Parameters provided to FrameNameSpecifier.
 export type FrameParams = {
   frame: number;
-  tagFrame: number;
-  tagName: string;
   layerName: string;
 };
 
@@ -50,29 +47,10 @@ export type FrameNameSpecifier = (frameParams: FrameParams) => string;
 export type ThreeAsepriteOptions<LayerName> = {
   texture: Texture;
   sourceJSON: AsepriteJSON;
-  frameName: FrameNameSpecifier,
+  frameName?: FrameNameSpecifier,
   offset?: IVector2;
   layers?: LayerName[];
   layerDepth?: number;
-};
-
-// Internal bookkeeping for sets of frames.
-type FrameSet = {
-  [layerName: string]: AsepriteJSONFrame;
-};
-
-// Internal bookkeeping for layers.
-type LayerData = {
-  color: Color;
-  opacity: number;
-  fadeColor: Color;
-  fadeAmount: number;
-  clipping?: {
-    xMin?: number;
-    yMin?: number;
-    xMax?: number;
-    yMax?: number;
-  }
 };
 
 // Internal bookkeeping for layer groups.
@@ -97,6 +75,11 @@ export type LayerClipping = {
   yMax: number;
 }
 
+type FrameInfo = {
+  duration: number;
+  layerFrames: Record<string, AsepriteJSONFrame>;
+}
+
 export const defaultLayerName = "Default";
 export const defaultTagName = "Default";
 
@@ -109,16 +92,20 @@ export class ThreeAseprite<LayerNames extends string = string> extends EventDisp
   public playingAnimation: boolean = true;
   public playingAnimationBackwards: boolean = false;
   public readonly sourceJSON: AsepriteJSON;
+  private frames: Record<number, FrameInfo> = {};
+  private tags: Record<string, AsepriteJSONFrameTag> = {};
   private orderedLayers: string[];
   private layerGroups: LayerGrouping = {};
-  currentTag: string;
+  private minFrame = -1;
+  private maxFrame = -1;
   private currentFrame: number = 0;
-  private frames: { [key: string]: FrameSet[] } = {};
+  private currentFrameTime: number = 0;
+  private currentTag: string | null = null;
+  private currentTagFrame: number | null = null;
   private geometry: BufferGeometry;
   private material: RawShaderMaterial;
   private textureWidth: number;
   private textureHeight: number;
-  private frameTime: number = 0;
   private vtxIndex: Uint16Array;
   private vtxPos: Float32Array;
   private vtxUV: Float32Array;
@@ -126,10 +113,10 @@ export class ThreeAseprite<LayerNames extends string = string> extends EventDisp
   private vtxColor: Float32Array;
   private vtxFade: Float32Array;
   private offset: Vector2 = new Vector2();
-  private emitByTagFrame: { [key: string]: string[] } = {};
   private options: ThreeAsepriteOptions<LayerNames>;
   private clipping?: LayerClipping;
   private outlineSpread?: number;
+
   constructor(options: ThreeAsepriteOptions<LayerNames>) {
     super();
 
@@ -140,6 +127,8 @@ export class ThreeAseprite<LayerNames extends string = string> extends EventDisp
       this.offset.x = options.offset.x;
       this.offset.y = options.offset.y;
     }
+
+    // Pick a z offset per layer so that higher layers are above lower layers.
     const layerDepth = options.layerDepth ?? 0.05;
 
     // Assign texture, size.
@@ -149,8 +138,8 @@ export class ThreeAseprite<LayerNames extends string = string> extends EventDisp
     // and contain references to images. Video textures not supported.
     this.textureWidth = this.texture.image.naturalWidth;
     this.textureHeight = this.texture.image.naturalHeight;
-    
-    // Extract layers from the sprite sheet definitions.
+
+    // Extract layers and groups from the sprite sheet definitions.
     if (options.layers) {
       this.orderedLayers = options.layers;
     } else if (options.sourceJSON.meta.layers?.length ?? 0 > 0) {
@@ -170,47 +159,76 @@ export class ThreeAseprite<LayerNames extends string = string> extends EventDisp
       this.orderedLayers = [defaultLayerName];
     }
 
-    // Extra frame tags from sprite sheet definitions.
-    let frameTags: AsepriteJSONFrameTag[] = [];
-    if (options.sourceJSON.meta.frameTags?.length) {
-      frameTags = options.sourceJSON.meta.frameTags;
-    } else {
-      frameTags.push({
-        name: defaultTagName,
-        from: 0,
-        to: Array.isArray(options.sourceJSON.frames)
-          ? options.sourceJSON.frames.length - 1
-          : Object.keys(options.sourceJSON.frames).length - 1,
-        direction: "forward"
-      });
-    }
-    this.currentTag = frameTags.at(0)?.name ?? defaultTagName;
-
-    // We want to support both object and array based source frames.
-    const framesByFilename = Array.isArray(this.sourceJSON.frames)
-      ? this.sourceJSON.frames.reduce((acc, frame) => {
-        acc[frame.filename] = frame;
-        return acc;
-      }, {} as AsepriteFramesObject)
-      : this.sourceJSON.frames;
-
-    // For each tag, for each layer, store frame in lookup object.
-    for (const frameTag of frameTags) {
-      const tagName = frameTag.name;
-      this.frames[tagName] = [];
-      for (let i = frameTag.from; i <= frameTag.to; i++) {
-        const frame = i;
-        const tagFrame = i - frameTag.from;
-        const frameSet: FrameSet = {};
-        this.frames[tagName].push(frameSet);
-        for (let li = 0; li < this.orderedLayers.length; li++) {
-          const layerName = this.orderedLayers[li];
-          const frameParams: FrameParams = { frame, tagFrame, tagName, layerName };
-          const frameKey = options.frameName(frameParams);
-          const frameDef: AsepriteJSONFrame = framesByFilename[frameKey];
-          if (frameDef) frameSet[layerName] = frameDef;
+    // If tags are available, populate tags and min/max frames.
+    if (options.sourceJSON.meta.frameTags !== undefined) {
+      this.currentTag = options.sourceJSON.meta.frameTags[0]?.name ?? null;
+      for (const frameTag of options.sourceJSON.meta.frameTags) {
+        this.tags[frameTag.name] = frameTag;
+        if (this.minFrame === -1) {
+          this.minFrame = frameTag.from;
+        } else {
+          this.minFrame = Math.min(this.minFrame, frameTag.from);
         }
+        this.maxFrame = Math.max(this.maxFrame, frameTag.to);
       }
+    }
+
+    // Get the hash of frame filenames to frames.
+    let framesByFilename: Record<string, AsepriteJSONFrame> | undefined;
+    if (Array.isArray(options.sourceJSON.frames)) {
+      framesByFilename = {};
+      for (const frame of options.sourceJSON.frames) {
+        framesByFilename[frame.filename] = frame;
+      }
+    } else {
+      framesByFilename = options.sourceJSON.frames;
+    }
+
+    // Ensure we have at least one frame.
+    const framesByFilenameKeys = Object.keys(framesByFilename);
+    if (framesByFilenameKeys.length === 0) throw new Error("[ThreeAseprite]: no frames present in source JSON.");
+
+    // Populate frames. This is easy if either:
+    // - there are layers, tags, and there's a frameName function
+    // - there are no layers or tags
+    // TODO: support pattern matching
+    if (this.minFrame === -1) {
+      this.minFrame = Number.parseInt(framesByFilenameKeys[0]);
+      if (Number.isNaN(this.minFrame)) throw new Error("[ThreeAseprite]: unable to resolve first frame index for sprite.");
+    }
+    if (this.maxFrame === -1) {
+      if (this.orderedLayers.length > 1) console.warn(`[ThreeAseprite]: layers were supplied but frames were not - using best guess based on frame defs length / layer count.`);
+      this.maxFrame = this.minFrame + Math.floor(framesByFilenameKeys.length / this.orderedLayers.length) - 1;
+    }
+    if (this.minFrame > this.maxFrame) throw new Error("[ThreeAseprite]: unable to resolve frame range.");
+    this.currentFrame = this.minFrame;
+
+    // Extract and map frames.
+    let frameKeyIndex = 0;
+    for (let frameIndex = this.minFrame; frameIndex <= this.maxFrame; frameIndex++) {
+      const frameInfo: FrameInfo = {
+        duration: 0,
+        layerFrames: {}
+      };
+      for (let layerIndex = 0; layerIndex < this.orderedLayers.length; layerIndex++) {
+        const layerName = this.orderedLayers[layerIndex];
+        let frameName: string | undefined;
+        if (options.frameName) {
+          frameName = options.frameName({
+            frame: frameIndex,
+            layerName: layerName
+          });
+        } else {
+          // This makes a huge assumption that Aseprite will always export things in the expected order.
+          frameName = framesByFilenameKeys[frameKeyIndex++];
+        }
+        if (frameName === undefined) throw new Error(`[ThreeAsperite]: unable to identify frame name (frame ${frameIndex}, layer ${layerName}).`);
+        const frameDef = framesByFilename[frameName];
+        if (frameDef === undefined) continue;
+        frameInfo.duration = Math.max(frameInfo.duration, frameDef.duration);
+        frameInfo.layerFrames[layerName] = frameDef;
+      }
+      this.frames[frameIndex] = frameInfo;
     }
 
     // Create geometry.
@@ -261,7 +279,7 @@ export class ThreeAseprite<LayerNames extends string = string> extends EventDisp
     this.mesh.scale.y = -1;
 
     // Initialize geometry to default tag and frame.
-    this.updateGeometryToTagFrame(this.currentTag, 0);
+    this.updateGeometryToFrame(this.currentFrame);
   }
   clone(): ThreeAseprite<LayerNames> {
     // TODO: advance to the correct frame.
@@ -272,43 +290,102 @@ export class ThreeAseprite<LayerNames extends string = string> extends EventDisp
     return this.currentFrame;
   }
   getFrameDuration(frameNumber: number) {
-    const frameDefs = this.frames[this.currentTag];
-    if (frameDefs === undefined) return 0;
-    const frameDef = frameDefs[frameNumber];
-    if (frameDef === undefined) return 0;
-    for (const layerDef of Object.values(frameDef)) {
-      return layerDef.duration;
-    }
-    return 0;
+    const frame = this.frames[frameNumber];
+    if (frame === undefined) return 0;
+    return frame.duration;
   }
   getCurrentFrameDuration() {
-    const frameDefs = this.frames[this.currentTag];
-    if (frameDefs === undefined) return 0;
-    const frameDef = frameDefs[this.currentFrame];
-    if (frameDef === undefined) return 0;
-    for (const layerDef of Object.values(frameDef)) {
-      return layerDef.duration;
-    }
-    return 0;
+    const frame = this.frames[this.currentFrame];
+    if (frame === undefined) return 0;
+    return frame.duration;
   }
   getCurrentTag() {
     return this.currentTag;
   }
-  getCurrentTagFrameCount() {
-    return this.frames[this.currentTag]?.length ?? 0;
+  getCurrentTagFrame() {
+    if (this.currentTag === null) return null;
+    const tag = this.tags[this.currentTag];
+    return this.currentTagFrame;
   }
-  updateGeometryToTagFrame(tagName: string, frameNo: number) {
+  getCurrentTagFrameCount() {
+    if (this.currentTag === null) return null;
+    const tag = this.tags[this.currentTag];
+    return tag.from - tag.to + 1;
+  }
+  animate(deltaMs: number) {
+    if (!this.playingAnimation) return;
+    let frameNo = this.currentFrame;
+    let frame = this.frames[frameNo];
+    if (frame === undefined) return;
+    if (frame.duration >= this.currentFrameTime + deltaMs) {
+      this.currentFrameTime += deltaMs;
+      return;
+    }
+    const tag = this.currentTag ? this.tags[this.currentTag] : undefined;
+    const step = this.playingAnimationBackwards ? -1 : 1;
+    let remainingDeltaMs = this.currentFrameTime + deltaMs;
+    let frameNoMin = this.minFrame;
+    let frameNoRange = this.maxFrame - this.minFrame + 1;
+    if (tag !== undefined) {
+      frameNoMin = tag.from;
+      frameNoRange = tag.to - tag.from + 1;
+    }
+    while (remainingDeltaMs > frame.duration) {
+      remainingDeltaMs -= (frame.duration || 1);
+      frameNo = ((frameNo - frameNoMin) + step + frameNoRange) % frameNoRange + frameNoMin;
+      frame = this.frames[frameNo];
+      if (frame === undefined) return;
+    }
+    this.currentFrame = frameNo;
+    this.currentFrameTime = -remainingDeltaMs;
+    if (tag !== undefined) {
+      this.currentTagFrame = frameNo - tag.from;
+    }
+    this.updateGeometryToFrame(frameNo);
+  }
+  gotoTag(tagName: string | null) {
+    if (this.currentTag === tagName) return;
+    if (tagName === null) {
+      this.currentTag = null;
+      this.currentTagFrame = null;
+      return;
+    }
+    const tag = this.tags[tagName];
+    if (tag === undefined) return;
+    this.currentTag = tagName;
+    this.currentTagFrame = 0;
+    this.currentFrame = tag.from;
+    this.currentFrameTime = 0;
+    this.updateGeometryToFrame(this.currentFrame);
+  }
+  gotoFrame(frameNo: number) {
+    if (this.currentFrame === frameNo) return;
+    this.currentFrame = frameNo;
+    this.currentFrameTime = 0;
+    this.updateGeometryToFrame(frameNo);
+  }
+  gotoTagFrame(tagFrameNo: number) {
+    if (this.currentTag === null) return;
+    const tag = this.tags[this.currentTag];
+    if (tag === undefined) return;
+    this.currentTagFrame = tagFrameNo;
+    this.currentFrame = tagFrameNo + tag.from;
+    this.currentFrameTime = 0;
+    this.updateGeometryToFrame(this.currentFrame);
+  }
+  setClipping(clipping: LayerClipping | null) {
+    this.clipping = clipping ?? undefined;
+  }
+  private updateGeometryToFrame(frameNo: number) {
     const { textureWidth, textureHeight, offset, clipping, outlineSpread } = this;
     const { x: xOffset, y: yOffset } = offset;
     const invWidth = 1 / textureWidth;
     const invHeight = 1 / textureHeight;
-    const tagDef = this.frames[tagName];
-    if (tagDef === undefined) throw new Error(`[ThreeAseprite]: unknown tag "${tagName}".`);
-    const frameDef = tagDef[frameNo % tagDef.length];
-    if (frameDef === undefined) throw new Error(`[ThreeAseprite]: unknown frame "${tagName}#${frameNo}".`);
+    const frameDef = this.frames[frameNo];
+    if (frameDef === undefined) throw new Error(`[ThreeAseprite]: unknown frame "#${frameNo}".`);
     for (let li = 0; li < this.orderedLayers.length; li++) {
       const layerName = this.orderedLayers[li];
-      const layerFrameDef = frameDef[layerName] ?? emptyFrameDef;
+      const layerFrameDef = frameDef.layerFrames[layerName] ?? emptyFrameDef;
       let { x, y, w, h } = layerFrameDef.frame;
       let { x: sx, y: sy } = layerFrameDef.spriteSourceSize;
       let { w: sw, h: sh } = layerFrameDef.sourceSize;
@@ -529,7 +606,7 @@ export class ThreeAseprite<LayerNames extends string = string> extends EventDisp
    * @returns 
    */
   getLayers() {
-    return [...this.orderedLayers];
+    return this.orderedLayers;
   }
   /**
    * Get available layer groups.
@@ -543,7 +620,7 @@ export class ThreeAseprite<LayerNames extends string = string> extends EventDisp
    * @returns
    */
   getTags() {
-    return Object.keys(this.frames);
+    return this.tags;
   }
   /**
    * Determines whether a given layer of layer group is present within a given tag.
@@ -559,12 +636,13 @@ export class ThreeAseprite<LayerNames extends string = string> extends EventDisp
         Partial<Record<LayerNames, boolean>>
       )
     );
-    const tagFrames = this.frames[tagName];
-    for (let fi = 0; fi < tagFrames.length; fi++) {
-      const tagFrame = tagFrames[fi];
-      if (tagFrame === undefined) continue;
+    const tag = this.tags[tagName];
+    if (tag === undefined) return false;
+    for (let fi = tag.from; fi <= tag.to; fi++) {
+      const frame = this.frames[fi];
+      if (frame === undefined) continue;
       for (const layerName of allSubLayers) {
-        const layerInfo = tagFrame[layerName];
+        const layerInfo = frame.layerFrames[layerName];
         if (layerInfo === undefined) continue;
         if (detectEmpty && layerInfo.frame.w < 2 && layerInfo.frame.h < 2) continue;
         return true;
