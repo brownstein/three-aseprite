@@ -4,6 +4,9 @@
 Aseprite is a powerful sprite editor which features support for multiple frames, layers, and collections of frames called tags. It can export animations as sprite sheets with JSON metadata, and this module exists to reassemble
 those sprite sheets into game-ready sprites with a variety of bells and whistles.
 
+## Demo
+Here's [a deployed demo](https://brownstein.github.io/three-aseprite/) with some of the advanced features exposed.
+
 ## Features
 - Handles sprite sheets with multiple layers and tags.
 - Supports time delta based animation, forwards and backwards.
