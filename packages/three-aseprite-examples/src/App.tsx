@@ -142,7 +142,7 @@ function App() {
       <header className="App-header">
         <canvas ref={canvasRef} width={200} height={200} />
         <p>
-          Demo of <code>three-aseprite</code> sprite rendering.
+          Demo of <code className="App-link">three-aseprite</code> sprite rendering.
         </p>
       </header>
       <label className="sprite-selector">
