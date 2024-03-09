@@ -1,7 +1,7 @@
 {
   "name": "three-aseprite",
   "type": "commonjs",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "description": "Three.js mesh rendering for Aseprite JSON sprite sheets",
   "keywords": [
     "three",
@@ -37,6 +37,7 @@
     "dist": "dist"
   },
   "files": [
-    "src"
+    "src",
+    "dist"
   ]
 }
