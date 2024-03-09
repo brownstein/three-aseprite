@@ -1,0 +1,16 @@
+{
+  "files": {
+    "main.css": "/static/css/main.0110e676.css",
+    "main.js": "/static/js/main.f8c1e71c.js",
+    "static/js/400.1d6f307a.chunk.js": "/static/js/400.1d6f307a.chunk.js",
+    "static/media/deer-character-packed.png": "/static/media/deer-character-packed.62303b54551e822ee62f.png",
+    "index.html": "/index.html",
+    "main.0110e676.css.map": "/static/css/main.0110e676.css.map",
+    "main.f8c1e71c.js.map": "/static/js/main.f8c1e71c.js.map",
+    "400.1d6f307a.chunk.js.map": "/static/js/400.1d6f307a.chunk.js.map"
+  },
+  "entrypoints": [
+    "static/css/main.0110e676.css",
+    "static/js/main.f8c1e71c.js"
+  ]
+}
