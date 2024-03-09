@@ -152,7 +152,7 @@ export function SpriteConfiguration(props: SpriteConfigurationProps) {
                           }}
                         />
                       )
-                      : null
+                      : <div className="missing-layer-tag" />
                     }</td>
                   ))}
                 </tr>
