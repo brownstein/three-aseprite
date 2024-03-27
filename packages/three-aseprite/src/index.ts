@@ -3,10 +3,9 @@ import {
   BufferGeometry,
   Color,
   ColorRepresentation,
-  DoubleSide,
   EventDispatcher,
+  EventListener,
   Mesh,
-  MeshBasicMaterial,
   RawShaderMaterial,
   Texture,
   Vector2,
@@ -19,9 +18,7 @@ import {
   AsepriteJSONFrameTag,
   AsepriteJSONLayer,
 } from "./aseprite-export-types";
-import {
-  createAspriteShaderMaterial
-} from "./aseprite-shader-material";
+import { createAspriteShaderMaterial } from "./aseprite-shader-material";
 
 export * from "./aseprite-export-types";
 
@@ -47,7 +44,7 @@ export type FrameNameSpecifier = (frameParams: FrameParams) => string;
 export type ThreeAsepriteOptions<LayerName> = {
   texture: Texture;
   sourceJSON: AsepriteJSON;
-  frameName?: FrameNameSpecifier,
+  frameName?: FrameNameSpecifier;
   offset?: IVector2;
   layers?: LayerName[];
   layerDepth?: number;
@@ -65,7 +62,7 @@ const emptyFrameDef: AsepriteJSONFrame = {
   trimmed: true,
   spriteSourceSize: { x: 0, y: 0, w: 0, h: 0 },
   sourceSize: { w: 0, h: 0 },
-  duration: 100
+  duration: 100,
 };
 
 export type LayerClipping = {
@@ -73,12 +70,12 @@ export type LayerClipping = {
   xMax: number;
   yMin: number;
   yMax: number;
-}
+};
 
 type FrameInfo = {
   duration: number;
   layerFrames: Record<string, AsepriteJSONFrame>;
-}
+};
 
 type Trigger<EventNames> = {
   tagName: string | null;
@@ -97,7 +94,7 @@ export const defaultTagName = "Default";
  */
 export class ThreeAseprite<
   LayerNames extends string = string,
-  EventNames extends string = string,
+  EventNames extends string = string
 > extends EventDispatcher<Record<EventNames, FrameTriggerEvent<EventNames>>> {
   public mesh: Mesh;
   public texture: Texture;
@@ -162,10 +159,12 @@ export class ThreeAseprite<
         if ((layerInfo as AsepriteJSONLayer).opacity !== undefined) {
           this.orderedLayers.push(layerInfo.name);
         } else {
-          if (!this.layerGroups[layerInfo.name]) this.layerGroups[layerInfo.name] = [];
+          if (!this.layerGroups[layerInfo.name])
+            this.layerGroups[layerInfo.name] = [];
         }
         if (layerInfo.group !== undefined) {
-          if (!this.layerGroups[layerInfo.group]) this.layerGroups[layerInfo.group] = [];
+          if (!this.layerGroups[layerInfo.group])
+            this.layerGroups[layerInfo.group] = [];
           this.layerGroups[layerInfo.group].push(layerInfo.name);
         }
       }
@@ -200,7 +199,8 @@ export class ThreeAseprite<
 
     // Ensure we have at least one frame.
     const framesByFilenameKeys = Object.keys(framesByFilename);
-    if (framesByFilenameKeys.length === 0) throw new Error("[ThreeAseprite]: no frames present in source JSON.");
+    if (framesByFilenameKeys.length === 0)
+      throw new Error("[ThreeAseprite]: no frames present in source JSON.");
 
     // Populate frames. This is easy if either:
     // - there are layers, tags, and there's a frameName function.
@@ -208,35 +208,56 @@ export class ThreeAseprite<
     // TODO: support pattern matching.
     if (this.minFrame === -1) {
       this.minFrame = Number.parseInt(framesByFilenameKeys[0]);
-      if (Number.isNaN(this.minFrame)) throw new Error("[ThreeAseprite]: unable to resolve first frame index for sprite.");
+      if (Number.isNaN(this.minFrame))
+        throw new Error(
+          "[ThreeAseprite]: unable to resolve first frame index for sprite."
+        );
     }
     if (this.maxFrame === -1) {
-      if (this.orderedLayers.length > 1) console.warn(`[ThreeAseprite]: layers were supplied but frames were not - using best guess based on frame defs length / layer count.`);
-      this.maxFrame = this.minFrame + Math.floor(framesByFilenameKeys.length / this.orderedLayers.length) - 1;
+      if (this.orderedLayers.length > 1)
+        console.warn(
+          `[ThreeAseprite]: layers were supplied but frames were not - using best guess based on frame defs length / layer count.`
+        );
+      this.maxFrame =
+        this.minFrame +
+        Math.floor(framesByFilenameKeys.length / this.orderedLayers.length) -
+        1;
     }
-    if (this.minFrame > this.maxFrame) throw new Error("[ThreeAseprite]: unable to resolve frame range.");
+    if (this.minFrame > this.maxFrame)
+      throw new Error("[ThreeAseprite]: unable to resolve frame range.");
     this.currentFrame = this.minFrame;
 
     // Extract and map frames.
     let frameKeyIndex = 0;
-    for (let frameIndex = this.minFrame; frameIndex <= this.maxFrame; frameIndex++) {
+    for (
+      let frameIndex = this.minFrame;
+      frameIndex <= this.maxFrame;
+      frameIndex++
+    ) {
       const frameInfo: FrameInfo = {
         duration: 0,
-        layerFrames: {}
+        layerFrames: {},
       };
-      for (let layerIndex = 0; layerIndex < this.orderedLayers.length; layerIndex++) {
+      for (
+        let layerIndex = 0;
+        layerIndex < this.orderedLayers.length;
+        layerIndex++
+      ) {
         const layerName = this.orderedLayers[layerIndex];
         let frameName: string | undefined;
         if (options.frameName) {
           frameName = options.frameName({
             frame: frameIndex,
-            layerName: layerName
+            layerName: layerName,
           });
         } else {
           // This makes a huge assumption that Aseprite will always export things in the expected order.
           frameName = framesByFilenameKeys[frameKeyIndex++];
         }
-        if (frameName === undefined) throw new Error(`[ThreeAsperite]: unable to identify frame name (frame ${frameIndex}, layer ${layerName}).`);
+        if (frameName === undefined)
+          throw new Error(
+            `[ThreeAsperite]: unable to identify frame name (frame ${frameIndex}, layer ${layerName}).`
+          );
         const frameDef = framesByFilename[frameName];
         if (frameDef === undefined) continue;
         frameInfo.duration = Math.max(frameInfo.duration, frameDef.duration);
@@ -256,8 +277,14 @@ export class ThreeAseprite<
     this.geometry = new BufferGeometry();
     this.geometry.setAttribute("position", new BufferAttribute(this.vtxPos, 3));
     this.geometry.setAttribute("uv", new BufferAttribute(this.vtxUV, 2));
-    this.geometry.setAttribute("vtxOpacity", new BufferAttribute(this.vtxOpacity, 1));
-    this.geometry.setAttribute("vtxColor", new BufferAttribute(this.vtxColor, 3));
+    this.geometry.setAttribute(
+      "vtxOpacity",
+      new BufferAttribute(this.vtxOpacity, 1)
+    );
+    this.geometry.setAttribute(
+      "vtxColor",
+      new BufferAttribute(this.vtxColor, 3)
+    );
     this.geometry.setAttribute("vtxFade", new BufferAttribute(this.vtxFade, 4));
     this.geometry.setIndex(new BufferAttribute(this.vtxIndex, 1));
     this.vtxOpacity.fill(1);
@@ -282,7 +309,7 @@ export class ThreeAseprite<
 
     // Create material.
     this.material = createAspriteShaderMaterial({
-      texture: options.texture
+      texture: options.texture,
     });
 
     // Create mesh.
@@ -345,8 +372,10 @@ export class ThreeAseprite<
       frameNoRange = tag.to - tag.from + 1;
     }
     while (remainingDeltaMs > frame.duration) {
-      remainingDeltaMs -= (frame.duration || 1);
-      frameNo = ((frameNo - frameNoMin) + step + frameNoRange) % frameNoRange + frameNoMin;
+      remainingDeltaMs -= frame.duration || 1;
+      frameNo =
+        ((frameNo - frameNoMin + step + frameNoRange) % frameNoRange) +
+        frameNoMin;
       frame = this.frames[frameNo];
       if (frame === undefined) return;
       const triggers = this.triggers[frameNo];
@@ -354,7 +383,7 @@ export class ThreeAseprite<
         for (const trigger of triggers) {
           if (trigger.tagName !== this.currentTag) continue;
           this.dispatchEvent({
-            type: trigger.eventName as Extract<EventNames, string>
+            type: trigger.eventName as Extract<EventNames, string>,
           });
         }
       }
@@ -400,12 +429,14 @@ export class ThreeAseprite<
     this.clipping = clipping ?? undefined;
   }
   private updateGeometryToFrame(frameNo: number) {
-    const { textureWidth, textureHeight, offset, clipping, outlineSpread } = this;
+    const { textureWidth, textureHeight, offset, clipping, outlineSpread } =
+      this;
     const { x: xOffset, y: yOffset } = offset;
     const invWidth = 1 / textureWidth;
     const invHeight = 1 / textureHeight;
     const frameDef = this.frames[frameNo];
-    if (frameDef === undefined) throw new Error(`[ThreeAseprite]: unknown frame "#${frameNo}".`);
+    if (frameDef === undefined)
+      throw new Error(`[ThreeAseprite]: unknown frame "#${frameNo}".`);
     for (let li = 0; li < this.orderedLayers.length; li++) {
       const layerName = this.orderedLayers[li];
       const layerFrameDef = frameDef.layerFrames[layerName] ?? emptyFrameDef;
@@ -486,7 +517,9 @@ export class ThreeAseprite<
       this.geometry.computeBoundingBox();
     }
   }
-  protected expandLayerGroups<T>(attrMap: Partial<Record<LayerNames, T>>): Partial<Record<LayerNames, T>> {
+  protected expandLayerGroups<T>(
+    attrMap: Partial<Record<LayerNames, T>>
+  ): Partial<Record<LayerNames, T>> {
     const assignments: Partial<Record<LayerNames, T>> = {};
     const toAssign = [...Object.entries(attrMap)] as [LayerNames, T][];
     while (toAssign.length > 0) {
@@ -512,7 +545,7 @@ export class ThreeAseprite<
   }
   /**
    * Sets an optional multiplicative color for the sprite.
-   * @param color 
+   * @param color
    */
   setColor(color: ColorRepresentation) {
     (this.material.uniforms.color.value as Color).set(color);
@@ -520,8 +553,8 @@ export class ThreeAseprite<
   }
   /**
    * Sets an optional fade color for the sprite.
-   * @param fadeColor 
-   * @param fadeAmount 
+   * @param fadeColor
+   * @param fadeAmount
    */
   setFade(fadeColor: ColorRepresentation, fadeAmount: number) {
     const color = new Color(fadeColor);
@@ -532,10 +565,13 @@ export class ThreeAseprite<
   /**
    * Sets an optional opacity per layer, plus an optional default to apply to all others.
    * This is useful when sprites have multiple conditional layers.
-   * @param opacityMap 
-   * @param defaultOpacity 
+   * @param opacityMap
+   * @param defaultOpacity
    */
-  setLayerOpacities(opacityMap: Partial<Record<LayerNames, number>>, defaultOpacity?: number) {
+  setLayerOpacities(
+    opacityMap: Partial<Record<LayerNames, number>>,
+    defaultOpacity?: number
+  ) {
     const opacityAssignments = this.expandLayerGroups(opacityMap);
     for (let li = 0; li < this.orderedLayers.length; li++) {
       const layerName = this.orderedLayers[li] as LayerNames;
@@ -573,7 +609,9 @@ export class ThreeAseprite<
    * Sets an optional fade color and amount per layer. This is useful for sprite recoloration.
    * @param colorMap
    */
-  setLayerFades(colorMap: Partial<Record<LayerNames, [ColorRepresentation, number]>>) {
+  setLayerFades(
+    colorMap: Partial<Record<LayerNames, [ColorRepresentation, number]>>
+  ) {
     const fadeAssignments = this.expandLayerGroups(colorMap);
     const color = new Color();
     for (let li = 0; li < this.orderedLayers.length; li++) {
@@ -597,20 +635,28 @@ export class ThreeAseprite<
   /**
    * Sets an optional outline on the sprite. Outlines expand the boundaries
    * of the sprite by a specified number of pixels with a specified color and opacity.
-   * 
+   *
    * When using this feature, ensure the sprite sheet has a padding equal or greater
    * than 2 * outlineWidth; otherwise, collisions with other frames will occur.
    * @param outlineWidth - width, in sprite-space pixels, of the outline.
    * @param outlineColor - color of the outline.
    * @param outlineOpacity - opacity of the outline.
    */
-  setOutline(outlineWidth: number, outlineColor?: ColorRepresentation, outlineOpacity?: number) {
-    const uOutlineSpread = this.material.uniforms.outlineSpread.value as Vector2;
+  setOutline(
+    outlineWidth: number,
+    outlineColor?: ColorRepresentation,
+    outlineOpacity?: number
+  ) {
+    const uOutlineSpread = this.material.uniforms.outlineSpread
+      .value as Vector2;
     const uOutline = this.material.uniforms.outline.value as Vector4;
     if (outlineWidth > 0 && outlineColor !== undefined) {
       const outlineColorAsColor = new Color(outlineColor);
       this.outlineSpread = outlineWidth;
-      uOutlineSpread.set(outlineWidth / this.textureWidth, outlineWidth / this.textureHeight);
+      uOutlineSpread.set(
+        outlineWidth / this.textureWidth,
+        outlineWidth / this.textureHeight
+      );
       uOutline.set(
         outlineColorAsColor.r,
         outlineColorAsColor.g,
@@ -626,14 +672,14 @@ export class ThreeAseprite<
   }
   /**
    * Get available layers.
-   * @returns 
+   * @returns
    */
   getLayers() {
     return this.orderedLayers;
   }
   /**
    * Get available layer groups.
-   * @returns 
+   * @returns
    */
   getLayerGroups() {
     return this.layerGroups;
@@ -648,72 +694,85 @@ export class ThreeAseprite<
   /**
    * Adds an event trigger at the specified frame.
    * @param frameNo
-   * @param eventName 
+   * @param eventName
    */
   addFrameTrigger(frameNo: number, eventName: EventNames) {
     const trigger: Trigger<EventNames> = {
       tagName: null,
-      eventName
+      eventName,
     };
     if (this.triggers[frameNo] === undefined) this.triggers[frameNo] = [];
-    this.triggers[frameNo].push(trigger); 
+    this.triggers[frameNo].push(trigger);
   }
   /**
    * Adds an event trigger at the specified tag and frame.
    * @param tagName
-   * @param tagFrameNo 
-   * @param eventName 
-   * @returns 
+   * @param tagFrameNo
+   * @param eventName
+   * @returns
    */
-  addTagFrameTrigger(tagName: string, tagFrameNo: number, eventName: EventNames) {
+  addTagFrameTrigger(
+    tagName: string,
+    tagFrameNo: number,
+    eventName: EventNames
+  ) {
     const tag = this.tags[tagName];
     if (tag === undefined) return;
     const frameNo = tag.from + tagFrameNo;
     const trigger: Trigger<EventNames> = {
       tagName,
-      eventName
+      eventName,
     };
     if (this.triggers[frameNo] === undefined) this.triggers[frameNo] = [];
     this.triggers[frameNo].push(trigger);
   }
   /**
    * Removes an event trigger.
-   * @param frameNo 
-   * @param eventName 
+   * @param frameNo
+   * @param eventName
    */
   removeFrameTrigger(frameNo: number, eventName: EventNames) {
-    if (this.triggers[frameNo]) this.triggers[frameNo] = this.triggers[frameNo].filter(t => {
-      if (t.eventName !== eventName) return true;
-      if (t.tagName !== null) return true;
-      return false;
-    });
+    if (this.triggers[frameNo])
+      this.triggers[frameNo] = this.triggers[frameNo].filter((t) => {
+        if (t.eventName !== eventName) return true;
+        if (t.tagName !== null) return true;
+        return false;
+      });
   }
   /**
    * Removes a tagged event trigger.
    */
-  removeTagFrameTrigger(tagName: string, tagFrameNo: number, eventName: EventNames) {
+  removeTagFrameTrigger(
+    tagName: string,
+    tagFrameNo: number,
+    eventName: EventNames
+  ) {
     const tag = this.tags[tagName];
     if (tag === undefined) return;
     const frameNo = tag.from + tagFrameNo;
-    if (this.triggers[frameNo]) this.triggers[frameNo] = this.triggers[frameNo].filter(t => {
-      if (t.eventName !== eventName) return true;
-      if (t.tagName !== tagName) return true;
-      return false;
-    });
+    if (this.triggers[frameNo])
+      this.triggers[frameNo] = this.triggers[frameNo].filter((t) => {
+        if (t.eventName !== eventName) return true;
+        if (t.tagName !== tagName) return true;
+        return false;
+      });
   }
   /**
    * Determines whether a given layer of layer group is present within a given tag.
    * This is primairly used by the example to produce a clickable group/tag matrix.
-   * @param layerOrGroupName 
-   * @param tagName 
+   * @param layerOrGroupName
+   * @param tagName
    * @param detectEmpty
    */
-  hasLayerAtTag(layerOrGroupName: LayerNames, tagName: string, detectEmpty?: boolean) {
+  hasLayerAtTag(
+    layerOrGroupName: LayerNames,
+    tagName: string,
+    detectEmpty?: boolean
+  ) {
     const allSubLayers = Object.keys(
-      this.expandLayerGroups(
-        { [layerOrGroupName]: true } as
-        Partial<Record<LayerNames, boolean>>
-      )
+      this.expandLayerGroups({ [layerOrGroupName]: true } as Partial<
+        Record<LayerNames, boolean>
+      >)
     );
     const tag = this.tags[tagName];
     if (tag === undefined) return false;
@@ -723,10 +782,50 @@ export class ThreeAseprite<
       for (const layerName of allSubLayers) {
         const layerInfo = frame.layerFrames[layerName];
         if (layerInfo === undefined) continue;
-        if (detectEmpty && layerInfo.frame.w < 2 && layerInfo.frame.h < 2) continue;
+        if (detectEmpty && layerInfo.frame.w < 2 && layerInfo.frame.h < 2)
+          continue;
         return true;
       }
     }
     return false;
+  }
+  /**
+   * Dispose of geometry and material.
+   */
+  dispose() {
+    this.geometry.dispose();
+    this.material.dispose();
+  }
+  // Redeclare parent class's method signature.
+  // This addresses a TS / VsCode bug where these methods aren't available.
+  addEventListener<T extends Extract<EventNames, string>>(
+    type: T,
+    listener: EventListener<
+      Record<EventNames, FrameTriggerEvent<EventNames>>[T],
+      T,
+      this
+    >
+  ): void {
+    super.addEventListener(type, listener);
+  }
+  hasEventListener<T extends Extract<EventNames, string>>(
+    type: T,
+    listener: EventListener<
+      Record<EventNames, FrameTriggerEvent<EventNames>>[T],
+      T,
+      this
+    >
+  ): boolean {
+    return super.hasEventListener(type, listener);
+  }
+  removeEventListener<T extends Extract<EventNames, string>>(
+    type: T,
+    listener: EventListener<
+      Record<EventNames, FrameTriggerEvent<EventNames>>[T],
+      T,
+      this
+    >
+  ): void {
+    super.removeEventListener(type, listener);
   }
 }
