@@ -378,6 +378,7 @@ export class ThreeAseprite<
         frameNoMin;
       frame = this.frames[frameNo];
       if (frame === undefined) return;
+      this.currentFrame = frameNo;
       const triggers = this.triggers[frameNo];
       if (triggers !== undefined) {
         for (const trigger of triggers) {
@@ -388,7 +389,6 @@ export class ThreeAseprite<
         }
       }
     }
-    this.currentFrame = frameNo;
     this.currentFrameTime = -remainingDeltaMs;
     if (tag !== undefined) {
       this.currentTagFrame = frameNo - tag.from;
