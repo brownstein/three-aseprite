@@ -796,6 +796,81 @@ export class ThreeAseprite<
     this.geometry.dispose();
     this.material.dispose();
   }
+  /**
+   * Gets the bounding box, in pixels, of a given layer.
+   * @param layerName
+   */
+  getLayerBoundingBox(
+    layerName: LayerNames | LayerNames[],
+    tagName?: string,
+    frameNo?: number
+  ): LayerClipping | null {
+    const initialLayers: Partial<Record<LayerNames, true>> = {};
+    if (Array.isArray(layerName)) {
+      for (const singleLayerName of layerName) {
+        initialLayers[singleLayerName] = true;
+      }
+    } else {
+      initialLayers[layerName] = true;
+    }
+    const allSubLayers = Object.keys(
+      this.expandLayerGroups(initialLayers)
+    ) as LayerNames[];
+    return this.getMultiLayerBoundingBox(allSubLayers, tagName, frameNo);
+  }
+  private getMultiLayerBoundingBox(
+    layerNames: LayerNames[],
+    tagName?: string,
+    frameNo?: number
+  ): LayerClipping | null {
+    let frameIndex = this.currentFrame;
+    if (tagName && frameNo) {
+      frameIndex = this.tags[tagName].from + frameNo;
+    } else if (tagName) {
+      frameIndex = this.tags[tagName].from;
+    } else if (frameNo) {
+      frameIndex = frameNo;
+    }
+
+    const offset = this.offset;
+
+    const frame = this.frames[frameIndex];
+    if (frame === undefined)
+      throw new Error("[ThreeAseprite]: frame not found.");
+
+    let bounds: LayerClipping | null = null;
+    for (const layerName of layerNames) {
+      const layerFrame = frame.layerFrames[layerName];
+      if (layerFrame === undefined) continue;
+
+      const { x, y, w, h } = layerFrame.spriteSourceSize;
+      const { w: sw, h: sh } = layerFrame.sourceSize;
+
+      // Empty layers don't have bounding boxes.
+      if (x === 0 && y === 0 && w === 1 && h === 1) continue;
+
+      const leftBound = w * 0 + x - sw * 0.5 + offset.x;
+      const rightBound = w * 1 + x - sw * 0.5 + offset.x;
+      const bottomBound = h * 0 + y - sh * 0.5 + offset.y;
+      const topBound = h * 1 + y - sh * 0.5 + offset.y;
+
+      if (bounds === null) {
+        bounds = {
+          xMin: leftBound,
+          xMax: rightBound,
+          yMin: bottomBound,
+          yMax: topBound,
+        };
+      } else {
+        bounds.xMin = Math.min(bounds.xMin, leftBound);
+        bounds.xMax = Math.max(bounds.xMax, rightBound);
+        bounds.yMin = Math.min(bounds.yMin, bottomBound);
+        bounds.yMax = Math.max(bounds.yMax, topBound);
+      }
+    }
+
+    return bounds;
+  }
   // Redeclare parent class's method signature.
   // This addresses a TS / VsCode bug where these methods aren't available.
   addEventListener<T extends Extract<EventNames, string>>(
