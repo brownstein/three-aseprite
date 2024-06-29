@@ -97,13 +97,34 @@ export type FrameTriggerEvent<EventNames> = {
 export const defaultLayerName = "Default";
 export const defaultTagName = "Default";
 
+// This event is fired by the sprite when an animation is completed.
+export const ANIMATION_COMPLETE = "animationComplete";
+
+// This event is fired by the sprite when an animation is switched.
+export const ANIMATION_SWITCHED = "animationSwitched";
+
+const ANIMATION_COMPLETE_EVENT = {
+  type: ANIMATION_COMPLETE,
+} as const;
+
+const ANIMATION_SWITCHED_EVENT = {
+  type: ANIMATION_SWITCHED,
+} as const;
+
 /**
  * Three.js aseprite sprite renderer class.
  */
 export class ThreeAseprite<
   LayerNames extends string = string,
   EventNames extends string = string
-> extends EventDispatcher<Record<EventNames, FrameTriggerEvent<EventNames>>> {
+> extends EventDispatcher<
+  Record<
+    EventNames | typeof ANIMATION_COMPLETE | typeof ANIMATION_SWITCHED,
+    FrameTriggerEvent<
+      EventNames | typeof ANIMATION_COMPLETE | typeof ANIMATION_SWITCHED
+    >
+  >
+> {
   public mesh: Mesh;
   public texture: Texture;
   public playingAnimation: boolean = true;
@@ -408,6 +429,15 @@ export class ThreeAseprite<
       frameNo =
         ((frameNo - frameNoMin + step + frameNoRange) % frameNoRange) +
         frameNoMin;
+      if (this.playingAnimationBackwards) {
+        if (frameNo === frameNoRange - 1) {
+          this.dispatchEvent(ANIMATION_COMPLETE_EVENT);
+        }
+      } else {
+        if (frameNo === 0) {
+          this.dispatchEvent(ANIMATION_COMPLETE_EVENT);
+        }
+      }
       frame = this.frames[frameNo];
       if (frame === undefined) return;
       this.currentFrame = frameNo;
@@ -429,6 +459,7 @@ export class ThreeAseprite<
   }
   gotoTag(tagName: string | null) {
     if (this.currentTag === tagName) return;
+    this.dispatchEvent(ANIMATION_SWITCHED_EVENT);
     if (tagName === null) {
       this.currentTag = null;
       this.currentTagFrame = null;
