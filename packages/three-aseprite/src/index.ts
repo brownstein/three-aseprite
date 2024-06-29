@@ -97,18 +97,17 @@ export type FrameTriggerEvent<EventNames> = {
 export const defaultLayerName = "Default";
 export const defaultTagName = "Default";
 
-// This event is fired by the sprite when an animation is completed.
-export const ANIMATION_COMPLETE = "animationComplete";
-
-// This event is fired by the sprite when an animation is switched.
-export const ANIMATION_SWITCHED = "animationSwitched";
+export enum StandardEvents {
+  animationComplete = "animationComplete",
+  tagSwitched = "tagSwitched",
+}
 
 const ANIMATION_COMPLETE_EVENT = {
-  type: ANIMATION_COMPLETE,
+  type: StandardEvents.animationComplete,
 } as const;
 
-const ANIMATION_SWITCHED_EVENT = {
-  type: ANIMATION_SWITCHED,
+const TAG_SWITCHED_EVENT = {
+  type: StandardEvents.tagSwitched,
 } as const;
 
 /**
@@ -119,10 +118,8 @@ export class ThreeAseprite<
   EventNames extends string = string
 > extends EventDispatcher<
   Record<
-    EventNames | typeof ANIMATION_COMPLETE | typeof ANIMATION_SWITCHED,
-    FrameTriggerEvent<
-      EventNames | typeof ANIMATION_COMPLETE | typeof ANIMATION_SWITCHED
-    >
+    EventNames | StandardEvents,
+    FrameTriggerEvent<EventNames | StandardEvents>
   >
 > {
   public mesh: Mesh;
@@ -459,7 +456,7 @@ export class ThreeAseprite<
   }
   gotoTag(tagName: string | null) {
     if (this.currentTag === tagName) return;
-    this.dispatchEvent(ANIMATION_SWITCHED_EVENT);
+    this.dispatchEvent(TAG_SWITCHED_EVENT);
     if (tagName === null) {
       this.currentTag = null;
       this.currentTagFrame = null;
@@ -936,30 +933,39 @@ export class ThreeAseprite<
   }
   // Redeclare parent class's method signature.
   // This addresses a TS / VsCode bug where these methods aren't available.
-  addEventListener<T extends Extract<EventNames, string>>(
+  addEventListener<T extends Extract<EventNames | StandardEvents, string>>(
     type: T,
     listener: EventListener<
-      Record<EventNames, FrameTriggerEvent<EventNames>>[T],
+      Record<
+        EventNames | StandardEvents,
+        FrameTriggerEvent<EventNames | StandardEvents>
+      >[T],
       T,
       this
     >
   ): void {
     super.addEventListener(type, listener);
   }
-  hasEventListener<T extends Extract<EventNames, string>>(
+  hasEventListener<T extends Extract<EventNames | StandardEvents, string>>(
     type: T,
     listener: EventListener<
-      Record<EventNames, FrameTriggerEvent<EventNames>>[T],
+      Record<
+        EventNames | StandardEvents,
+        FrameTriggerEvent<EventNames | StandardEvents>
+      >[T],
       T,
       this
     >
   ): boolean {
     return super.hasEventListener(type, listener);
   }
-  removeEventListener<T extends Extract<EventNames, string>>(
+  removeEventListener<T extends Extract<EventNames | StandardEvents, string>>(
     type: T,
     listener: EventListener<
-      Record<EventNames, FrameTriggerEvent<EventNames>>[T],
+      Record<
+        EventNames | StandardEvents,
+        FrameTriggerEvent<EventNames | StandardEvents>
+      >[T],
       T,
       this
     >
