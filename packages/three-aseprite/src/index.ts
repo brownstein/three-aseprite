@@ -40,11 +40,19 @@ export type FrameParams = {
 // a function that maps FrameParams to the layer's filename.
 export type FrameNameSpecifier = (frameParams: FrameParams) => string;
 
+// We also support the inverse - resolving the layer and tag from the frame name.
+// This comes in handy for complex sprites with a high number of empty frames/layer
+// combinations.
+export type InvertedFrameNameSpecifier = (
+  frameName: string
+) => Partial<FrameParams>;
+
 // Options passed to the constructor for ThreeAseprite.
 export type ThreeAsepriteOptions<LayerName> = {
   texture: Texture;
   sourceJSON: AsepriteJSON;
   frameName?: FrameNameSpecifier;
+  frameNameToFrameParams?: InvertedFrameNameSpecifier;
   offset?: IVector2;
   layers?: LayerName[];
   layerDepth?: number;
@@ -228,42 +236,66 @@ export class ThreeAseprite<
     this.currentFrame = this.minFrame;
 
     // Extract and map frames.
-    let frameKeyIndex = 0;
-    for (
-      let frameIndex = this.minFrame;
-      frameIndex <= this.maxFrame;
-      frameIndex++
-    ) {
-      const frameInfo: FrameInfo = {
-        duration: 0,
-        layerFrames: {},
-      };
-      for (
-        let layerIndex = 0;
-        layerIndex < this.orderedLayers.length;
-        layerIndex++
-      ) {
-        const layerName = this.orderedLayers[layerIndex];
-        let frameName: string | undefined;
-        if (options.frameName) {
-          frameName = options.frameName({
-            frame: frameIndex,
-            layerName: layerName,
-          });
-        } else {
-          // This makes a huge assumption that Aseprite will always export things in the expected order.
-          frameName = framesByFilenameKeys[frameKeyIndex++];
-        }
-        if (frameName === undefined)
-          throw new Error(
-            `[ThreeAsperite]: unable to identify frame name (frame ${frameIndex}, layer ${layerName}).`
+    if (options.frameNameToFrameParams) {
+      const frameNameToFrameParams = options.frameNameToFrameParams;
+      for (const [frameName, frame] of Object.entries(framesByFilename)) {
+        const frameParams = frameNameToFrameParams(frameName);
+        const frameIndex = frameParams.frame;
+        const frameLayer = frameParams.layerName ?? defaultLayerName;
+        if (frameIndex === undefined) {
+          console.warn(
+            "[ThreeAseprite]: failed to get frame index from frameNameToFrameParams."
           );
-        const frameDef = framesByFilename[frameName];
-        if (frameDef === undefined) continue;
-        frameInfo.duration = Math.max(frameInfo.duration, frameDef.duration);
-        frameInfo.layerFrames[layerName] = frameDef;
+          continue;
+        }
+        let frameInfo: FrameInfo | undefined = this.frames[frameIndex];
+        if (frameInfo === undefined) {
+          frameInfo = {
+            duration: frame.duration,
+            layerFrames: {},
+          };
+          this.frames[frameIndex] = frameInfo;
+        }
+        frameInfo.layerFrames[frameLayer] = frame;
       }
-      this.frames[frameIndex] = frameInfo;
+    } else {
+      let frameKeyIndex = 0;
+      for (
+        let frameIndex = this.minFrame;
+        frameIndex <= this.maxFrame;
+        frameIndex++
+      ) {
+        const frameInfo: FrameInfo = {
+          duration: 0,
+          layerFrames: {},
+        };
+        for (
+          let layerIndex = 0;
+          layerIndex < this.orderedLayers.length;
+          layerIndex++
+        ) {
+          const layerName = this.orderedLayers[layerIndex];
+          let frameName: string | undefined;
+          if (options.frameName) {
+            frameName = options.frameName({
+              frame: frameIndex,
+              layerName: layerName,
+            });
+          } else {
+            // This makes a huge assumption that Aseprite will always export things in the expected order.
+            frameName = framesByFilenameKeys[frameKeyIndex++];
+          }
+          if (frameName === undefined)
+            throw new Error(
+              `[ThreeAsperite]: unable to identify frame name (frame ${frameIndex}, layer ${layerName}).`
+            );
+          const frameDef = framesByFilename[frameName];
+          if (frameDef === undefined) continue;
+          frameInfo.duration = Math.max(frameInfo.duration, frameDef.duration);
+          frameInfo.layerFrames[layerName] = frameDef;
+        }
+        this.frames[frameIndex] = frameInfo;
+      }
     }
 
     // Create geometry.

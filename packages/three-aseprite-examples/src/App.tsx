@@ -11,7 +11,7 @@ import {
 } from "three";
 import GUI from "three/examples/jsm/libs/lil-gui.module.min";
 
-import { ThreeAseprite, AsepriteJSON } from "three-aseprite";
+import { ThreeAseprite, AsepriteJSON, InvertedFrameNameSpecifier } from "three-aseprite";
 
 import deerPackedJSON from "./assets/deer-character-packed-hash.json";
 import deerPackedPng from "./assets/deer-character-packed.png";
@@ -111,13 +111,24 @@ function App() {
       texture.minFilter = NearestFilter;
       texture.magFilter = NearestFilter;
       const sourceJSON = spriteConfig.json;
-      const frameName = !!spriteConfig.json.meta.layers
-        ? ({ layerName, frame }: { layerName: string, frame: number}) => `(${layerName}) ${frame}`
+      // Older frameName based method.
+      // const frameName = !!spriteConfig.json.meta.layers
+      //   ? ({ layerName, frame }: { layerName: string, frame: number}) => `(${layerName}) ${frame}`
+      //   : undefined;
+      const frameNameToFrameParams: InvertedFrameNameSpecifier | undefined = !!spriteConfig.json.meta.layers
+        ? (rawName) => {
+          const parts = /\((.+)\) (.+)/.exec(rawName);
+          if (parts?.length !== 3) throw new Error("Invalid frame name conversion");
+          return {
+            layerName: parts[1],
+            frame: Number(parts[2])
+          };
+        }
         : undefined;
       const sprite = new ThreeAseprite({
         texture,
         sourceJSON,
-        frameName
+        frameNameToFrameParams
       });
       if (spriteConfig.defaultLayerOpacities) {
         sprite.setLayerOpacities(spriteConfig.defaultLayerOpacities, 0);
