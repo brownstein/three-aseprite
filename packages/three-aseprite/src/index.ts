@@ -441,7 +441,8 @@ export class ThreeAseprite<
       const triggers = this.triggers[frameNo];
       if (triggers !== undefined) {
         for (const trigger of triggers) {
-          if (trigger.tagName !== this.currentTag) continue;
+          if (trigger.tagName !== null && trigger.tagName !== this.currentTag)
+            continue;
           this.dispatchEvent({
             type: trigger.eventName as Extract<EventNames, string>,
           });
@@ -456,7 +457,6 @@ export class ThreeAseprite<
   }
   gotoTag(tagName: string | null) {
     if (this.currentTag === tagName) return;
-    this.dispatchEvent(TAG_SWITCHED_EVENT);
     if (tagName === null) {
       this.currentTag = null;
       this.currentTagFrame = null;
@@ -469,6 +469,7 @@ export class ThreeAseprite<
     this.currentFrame = tag.from;
     this.currentFrameTime = 0;
     this.updateGeometryToFrame(this.currentFrame);
+    this.dispatchEvent(TAG_SWITCHED_EVENT);
   }
   gotoFrame(frameNo: number) {
     if (this.currentFrame === frameNo) return;
