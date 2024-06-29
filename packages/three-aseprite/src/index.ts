@@ -427,11 +427,11 @@ export class ThreeAseprite<
         ((frameNo - frameNoMin + step + frameNoRange) % frameNoRange) +
         frameNoMin;
       if (this.playingAnimationBackwards) {
-        if (frameNo === frameNoRange - 1) {
+        if (frameNo === frameNoMin + frameNoRange - 1) {
           this.dispatchEvent(ANIMATION_COMPLETE_EVENT);
         }
       } else {
-        if (frameNo === 0) {
+        if (frameNo === frameNoMin) {
           this.dispatchEvent(ANIMATION_COMPLETE_EVENT);
         }
       }
