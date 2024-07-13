@@ -15,17 +15,20 @@ uniform mat4 projectionMatrix;
 uniform float opacity;
 uniform vec3 color;
 uniform vec4 fade;
+uniform vec2 outlineSpread;
 
 attribute vec3 position;
 attribute vec2 uv;
 attribute vec3 vtxColor;
 attribute vec4 vtxFade;
 attribute float vtxOpacity;
+attribute vec2 vtxOutlineSpread;
 
 varying vec2 vUv;
 varying vec3 vColor;
 varying vec4 vFade;
 varying float vOpacity;
+varying vec2 vOutlineSpread;
 
 void main() {
 	vUv = uv;
@@ -38,6 +41,11 @@ void main() {
 	
 	vOpacity = vtxOpacity * opacity;
 
+	// Support layer-specific outline sizes.
+	vOutlineSpread = vec2(0.0, 0.0);
+	vOutlineSpread += outlineSpread;
+	vOutlineSpread *= vtxOutlineSpread;
+
 	gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
 }
 `;
@@ -46,13 +54,13 @@ export const asepriteShaderMaterialFragmentShader = `
 precision mediump float;
 
 uniform sampler2D map;
-uniform vec2 outlineSpread;
 uniform vec4 outline;
 
 varying vec2 vUv;
 varying vec3 vColor;
 varying vec4 vFade;
 varying float vOpacity;
+varying vec2 vOutlineSpread;
 
 void main() {
 	vec4 color = texture2D(map, vUv);
@@ -66,11 +74,11 @@ void main() {
 	}
 	
 	// Support outlines.
-	if (color.a < 1.0 && (outlineSpread.x > 0.0 || outlineSpread.y > 0.0)) {
-		vec4 color1 = texture2D(map, vUv - vec2(outlineSpread.x, 0.0));
-		vec4 color2 = texture2D(map, vUv + vec2(outlineSpread.x, 0.0));
-		vec4 color3 = texture2D(map, vUv - vec2(0.0, outlineSpread.y));
-		vec4 color4 = texture2D(map, vUv + vec2(0.0, outlineSpread.y));
+	if (color.a < 1.0 && (vOutlineSpread.x > 0.0 || vOutlineSpread.y > 0.0)) {
+		vec4 color1 = texture2D(map, vUv - vec2(vOutlineSpread.x, 0.0));
+		vec4 color2 = texture2D(map, vUv + vec2(vOutlineSpread.x, 0.0));
+		vec4 color3 = texture2D(map, vUv - vec2(0.0, vOutlineSpread.y));
+		vec4 color4 = texture2D(map, vUv + vec2(0.0, vOutlineSpread.y));
 		if (color1.a > color.a && color1.a > 0.5) {
 			color = outline;
 		}

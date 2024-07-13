@@ -148,6 +148,7 @@ export class ThreeAseprite<
   private vtxOpacity: Float32Array;
   private vtxColor: Float32Array;
   private vtxFade: Float32Array;
+  private vtxOutlineSpread: Float32Array;
   private offset: Vector2 = new Vector2();
   private options: ThreeAsepriteOptions<LayerNames>;
   private clipping?: LayerClipping;
@@ -324,6 +325,7 @@ export class ThreeAseprite<
     this.vtxOpacity = new Float32Array(4 * quadCount);
     this.vtxColor = new Float32Array(12 * quadCount);
     this.vtxFade = new Float32Array(16 * quadCount);
+    this.vtxOutlineSpread = new Float32Array(8 * quadCount);
     this.geometry = new BufferGeometry();
     this.geometry.setAttribute("position", new BufferAttribute(this.vtxPos, 3));
     this.geometry.setAttribute("uv", new BufferAttribute(this.vtxUV, 2));
@@ -336,9 +338,11 @@ export class ThreeAseprite<
       new BufferAttribute(this.vtxColor, 3)
     );
     this.geometry.setAttribute("vtxFade", new BufferAttribute(this.vtxFade, 4));
+    this.geometry.setAttribute("vtxOutlineSpread", new BufferAttribute(this.vtxOutlineSpread, 2));
     this.geometry.setIndex(new BufferAttribute(this.vtxIndex, 1));
     this.vtxOpacity.fill(1);
     this.vtxColor.fill(1);
+    this.vtxOutlineSpread.fill(1);
 
     // Initialize indices and layer z values.
     for (let qi = 0; qi < quadCount; qi++) {
@@ -730,6 +734,23 @@ export class ThreeAseprite<
       uOutline.set(0, 0, 0, 0);
     }
     this.material.uniformsNeedUpdate = true;
+  }
+  /**
+   * Sets optional outline distances for each layer of the sprite.
+   * These widths are relative to the outline width set in setOutline.
+   */
+  setRealtiveLayerOutlines(
+    outlineSizeMap: Partial<Record<LayerNames, number>>
+  ) {
+    const outlineAssignments = this.expandLayerGroups(outlineSizeMap);
+    for (let li = 0; li < this.orderedLayers.length; li++) {
+      const layerName = this.orderedLayers[li] as LayerNames;
+      const size = outlineAssignments[layerName];
+      if (size === undefined) continue;
+      const fi = li * 8;
+      for (let oi = 0; oi < 8; oi++) this.vtxOutlineSpread[fi + oi] = size;
+    }
+    this.geometry.getAttribute("vtxOutlineSpread").needsUpdate = true;
   }
   /**
    * Get available layers.

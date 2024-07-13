@@ -37,6 +37,10 @@ export function SpriteConfiguration(props: SpriteConfigurationProps) {
     sprite.setColor(config.color);
     sprite.setFade(...config.fade);
     sprite.setOutline(...config.outline);
+    // Test for disabling outlines for specific layers.
+    // sprite.setRealtiveLayerOutlines({
+    //   "Sword-Run-Sword": 0
+    // });
     if (layerGroupTagInfo) {
       if (config.layerGroupOpacity) sprite.setLayerOpacities(config.layerGroupOpacity, 0);
       if (config.tag && sprite.getTags()[config.tag ?? ""]) sprite.gotoTag(config.tag);
