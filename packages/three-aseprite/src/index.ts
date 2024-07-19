@@ -425,6 +425,7 @@ export class ThreeAseprite<
       frameNoMin = tag.from;
       frameNoRange = tag.to - tag.from + 1;
     }
+    let eventsToDispatch: Parameters<typeof this.dispatchEvent>[0][] = [];
     while (remainingDeltaMs > frame.duration) {
       remainingDeltaMs -= frame.duration || 1;
       frameNo =
@@ -432,11 +433,11 @@ export class ThreeAseprite<
         frameNoMin;
       if (this.playingAnimationBackwards) {
         if (frameNo === frameNoMin + frameNoRange - 1) {
-          this.dispatchEvent(ANIMATION_COMPLETE_EVENT);
+          eventsToDispatch.push(ANIMATION_COMPLETE_EVENT);
         }
       } else {
         if (frameNo === frameNoMin) {
-          this.dispatchEvent(ANIMATION_COMPLETE_EVENT);
+          eventsToDispatch.push(ANIMATION_COMPLETE_EVENT);
         }
       }
       frame = this.frames[frameNo];
@@ -447,7 +448,7 @@ export class ThreeAseprite<
         for (const trigger of triggers) {
           if (trigger.tagName !== null && trigger.tagName !== this.currentTag)
             continue;
-          this.dispatchEvent({
+          eventsToDispatch.push({
             type: trigger.eventName as Extract<EventNames, string>,
           });
         }
@@ -458,6 +459,9 @@ export class ThreeAseprite<
       this.currentTagFrame = frameNo - tag.from;
     }
     this.updateGeometryToFrame(frameNo);
+    for (const event of eventsToDispatch) {
+      this.dispatchEvent(event);
+    }
   }
   gotoTag(tagName: string | null) {
     if (this.currentTag === tagName) return;
