@@ -132,8 +132,8 @@ export class ThreeAseprite<
   private tags: Record<string, AsepriteJSONFrameTag> = {};
   private orderedLayers: string[];
   private layerGroups: LayerGrouping = {};
-  private minFrame = -1;
-  private maxFrame = -1;
+  private minFrame = 0;
+  private maxFrame = 0;
   private currentFrame: number = 0;
   private currentFrameTime: number = 0;
   private currentTag: string | null = null;
@@ -200,7 +200,7 @@ export class ThreeAseprite<
     }
 
     // If tags are available, populate tags and min/max frames.
-    if (options.sourceJSON.meta.frameTags !== undefined) {
+    if (options.sourceJSON.meta.frameTags?.length) {
       this.currentTag = options.sourceJSON.meta.frameTags[0]?.name ?? null;
       for (const frameTag of options.sourceJSON.meta.frameTags) {
         this.tags[frameTag.name] = frameTag;
