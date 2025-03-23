@@ -136,5 +136,5 @@ export function createAspriteShaderMaterial(props: AsepriteShaderMaterialProps) 
 		},
 		side: DoubleSide,
 		transparent: true,
-	})
+	});
 }
