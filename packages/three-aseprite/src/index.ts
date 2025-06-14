@@ -904,6 +904,14 @@ export class ThreeAseprite<
     ) as LayerNames[];
     return this.getMultiLayerBoundingBox(allSubLayers, tagName, frameNo);
   }
+  /**
+   * Sets the offset for this sprite.
+   * @param offset 
+   */
+  public setOffset(offset: Vector2) {
+    this.offset.copy(offset);
+    this.updateGeometryToFrame(this.currentFrame);
+  }
   private getMultiLayerBoundingBox(
     layerNames: LayerNames[],
     tagName?: string,
