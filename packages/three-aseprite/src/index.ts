@@ -412,13 +412,13 @@ export class ThreeAseprite<
     let frameNo = this.currentFrame;
     let frame = this.frames[frameNo];
     if (frame === undefined) return;
-    if (frame.duration >= this.currentFrameTime + deltaMs) {
-      this.currentFrameTime += deltaMs;
+    this.currentFrameTime += deltaMs;
+    if (frame.duration >= this.currentFrameTime) {
       return;
     }
     const tag = this.currentTag ? this.tags[this.currentTag] : undefined;
     const step = this.playingAnimationBackwards ? -1 : 1;
-    let remainingDeltaMs = this.currentFrameTime + deltaMs;
+    let remainingDeltaMs = this.currentFrameTime;
     let frameNoMin = this.minFrame;
     let frameNoRange = this.maxFrame - this.minFrame + 1;
     if (tag !== undefined) {
@@ -454,7 +454,7 @@ export class ThreeAseprite<
         }
       }
     }
-    this.currentFrameTime = -remainingDeltaMs;
+    this.currentFrameTime = remainingDeltaMs;
     if (tag !== undefined) {
       this.currentTagFrame = frameNo - tag.from;
     }
