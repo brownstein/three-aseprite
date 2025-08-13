@@ -550,8 +550,10 @@ export class ThreeAseprite<
 
       // Apply optional outlining.
       if (outlineSpread !== undefined && layerFrameDef !== emptyFrameDef) {
-        sx -= outlineSpread;
-        sy -= outlineSpread;
+        // sx -= outlineSpread;
+        // sy -= outlineSpread;
+        sw += outlineSpread * 2;
+        sh += outlineSpread * 2;
         x -= outlineSpread;
         y -= outlineSpread;
         w += outlineSpread * 2;
@@ -719,6 +721,7 @@ export class ThreeAseprite<
     const uOutlineSpread = this.material.uniforms.outlineSpread
       .value as Vector2;
     const uOutline = this.material.uniforms.outline.value as Vector4;
+    const changedSpread = this.outlineSpread !== outlineWidth;
     if (outlineWidth > 0 && outlineColor !== undefined) {
       const outlineColorAsColor = new Color(outlineColor);
       this.outlineSpread = outlineWidth;
@@ -738,6 +741,7 @@ export class ThreeAseprite<
       uOutline.set(0, 0, 0, 0);
     }
     this.material.uniformsNeedUpdate = true;
+    if (changedSpread) this.updateGeometryToFrame(this.currentFrame);
   }
   /**
    * Sets optional outline distances for each layer of the sprite.
