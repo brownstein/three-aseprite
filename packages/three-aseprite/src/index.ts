@@ -338,7 +338,10 @@ export class ThreeAseprite<
       new BufferAttribute(this.vtxColor, 3)
     );
     this.geometry.setAttribute("vtxFade", new BufferAttribute(this.vtxFade, 4));
-    this.geometry.setAttribute("vtxOutlineSpread", new BufferAttribute(this.vtxOutlineSpread, 2));
+    this.geometry.setAttribute(
+      "vtxOutlineSpread",
+      new BufferAttribute(this.vtxOutlineSpread, 2)
+    );
     this.geometry.setIndex(new BufferAttribute(this.vtxIndex, 1));
     this.vtxOpacity.fill(1);
     this.vtxColor.fill(1);
@@ -405,7 +408,7 @@ export class ThreeAseprite<
   getCurrentTagFrameCount() {
     if (this.currentTag === null) return null;
     const tag = this.tags[this.currentTag];
-    return tag.from - tag.to + 1;
+    return tag.to - tag.from + 1;
   }
   animate(deltaMs: number) {
     if (!this.playingAnimation) return;
@@ -489,8 +492,10 @@ export class ThreeAseprite<
     if (this.currentTag === null) return;
     const tag = this.tags[this.currentTag];
     if (tag === undefined) return;
-    this.currentTagFrame = tagFrameNo;
-    this.currentFrame = tagFrameNo + tag.from;
+    let tagFrameNoWrapped = tagFrameNo;
+    if (tagFrameNoWrapped < 0) tagFrameNoWrapped += tag.to - tag.from;
+    this.currentTagFrame = tagFrameNoWrapped;
+    this.currentFrame = tagFrameNoWrapped + tag.from;
     this.currentFrameTime = 0;
     this.updateGeometryToFrame(this.currentFrame);
   }
@@ -910,7 +915,7 @@ export class ThreeAseprite<
   }
   /**
    * Sets the offset for this sprite.
-   * @param offset 
+   * @param offset
    */
   public setOffset(offset: Vector2) {
     this.offset.copy(offset);
