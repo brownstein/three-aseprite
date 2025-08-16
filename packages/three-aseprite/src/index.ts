@@ -440,6 +440,7 @@ export class ThreeAseprite<
           eventsToDispatch.push(ANIMATION_COMPLETE_EVENT);
           if (this.holdLastAnimationFrame) {
             remainingDeltaMs = 0;
+            frameNo = this.minFrame;
             break;
           }
         }
@@ -448,6 +449,7 @@ export class ThreeAseprite<
           eventsToDispatch.push(ANIMATION_COMPLETE_EVENT);
           if (this.holdLastAnimationFrame) {
             remainingDeltaMs = 0;
+            frameNo = this.maxFrame;
             break;
           }
         }
