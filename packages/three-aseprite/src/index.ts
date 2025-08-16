@@ -126,6 +126,7 @@ export class ThreeAseprite<
   public texture: Texture;
   public playingAnimation: boolean = true;
   public playingAnimationBackwards: boolean = false;
+  public holdLastAnimationFrame: boolean = false;
   public readonly sourceJSON: AsepriteJSON;
 
   private frames: Record<number, FrameInfo> = {};
@@ -437,10 +438,18 @@ export class ThreeAseprite<
       if (this.playingAnimationBackwards) {
         if (frameNo === frameNoMin + frameNoRange - 1) {
           eventsToDispatch.push(ANIMATION_COMPLETE_EVENT);
+          if (this.holdLastAnimationFrame) {
+            remainingDeltaMs = 0;
+            break;
+          }
         }
       } else {
         if (frameNo === frameNoMin) {
           eventsToDispatch.push(ANIMATION_COMPLETE_EVENT);
+          if (this.holdLastAnimationFrame) {
+            remainingDeltaMs = 0;
+            break;
+          }
         }
       }
       frame = this.frames[frameNo];
