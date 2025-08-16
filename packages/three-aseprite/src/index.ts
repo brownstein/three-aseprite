@@ -493,7 +493,7 @@ export class ThreeAseprite<
     const tag = this.tags[this.currentTag];
     if (tag === undefined) return;
     let tagFrameNoWrapped = tagFrameNo;
-    if (tagFrameNoWrapped < 0) tagFrameNoWrapped += tag.to - tag.from;
+    if (tagFrameNoWrapped < 0) tagFrameNoWrapped += tag.to - tag.from + 1;
     this.currentTagFrame = tagFrameNoWrapped;
     this.currentFrame = tagFrameNoWrapped + tag.from;
     this.currentFrameTime = 0;
