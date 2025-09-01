@@ -1,7 +1,7 @@
 {
   "name": "three-aseprite",
   "type": "module",
-  "version": "0.0.30",
+  "version": "0.0.31",
   "description": "Three.js mesh rendering for Aseprite JSON sprite sheets",
   "keywords": [
     "three",

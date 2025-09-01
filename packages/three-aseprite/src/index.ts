@@ -17,10 +17,10 @@ import {
   AsepriteJSONFrame,
   AsepriteJSONFrameTag,
   AsepriteJSONLayer,
-} from "./aseprite-export-types";
-import { createAspriteShaderMaterial } from "./aseprite-shader-material";
+} from "./aseprite-export-types.js";
+import { createAspriteShaderMaterial } from "./aseprite-shader-material.js";
 
-export * from "./aseprite-export-types";
+export * from "./aseprite-export-types.js";
 
 // Interface type for vectors passed to the sprite.
 export type IVector2 = {
